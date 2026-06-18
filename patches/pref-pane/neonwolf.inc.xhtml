@@ -1,0 +1,254 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+<script src="chrome://browser/content/preferences/neonwolf.js"/>
+
+<html:template id="template-paneLibrewolf">
+
+<hbox class="subcategory" hidden="true" data-category="paneLibrewolf">
+  <html:h1 data-l10n-id="neonwolf-header"/>
+</hbox>
+
+<groupbox hidden="true" data-category="paneLibrewolf">
+  <html:h2 data-l10n-id="neonwolf-general-heading"/>
+
+  <!-- TEMPLATE FOR A NEW PREFERENCE
+  <hbox>
+    <checkbox id="neonwolf-LABEL-checkbox" data-l10n-id="neonwolf-LABEL-checkbox" preference="PREF" flex="1" />
+    <html:label for="neonwolf-LABEL-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+  </hbox>
+  <vbox class="neonwolf-collapse indent">
+    <html:input type="checkbox" id="neonwolf-LABEL-collapse" />
+    <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+      <label data-l10n-id="neonwolf-LABEL-description" />
+      <html:div> <image src="chrome://browser/skin/warning.svg" /> <label data-l10n-id="neonwolf-LABEL-warning1" class="neonwolf-warning" /> </html:div>
+      <checkbox preference="PREF" label="PREF" />
+    </vbox>
+  </vbox>
+  -->
+
+  <hbox>
+    <checkbox id="neonwolf-extension-update-checkbox" data-l10n-id="neonwolf-extension-update-checkbox" preference="extensions.update.autoUpdateDefault" flex="1" />
+    <html:label for="neonwolf-extension-update-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+  </hbox>
+  <vbox class="neonwolf-collapse indent">
+    <html:input type="checkbox" id="neonwolf-extension-update-collapse" />
+    <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+      <label data-l10n-id="neonwolf-extension-update-description" />
+      <html:div> <image src="chrome://browser/skin/warning.svg" /> <label data-l10n-id="neonwolf-extension-update-warning1" class="neonwolf-warning" /> </html:div>
+      <checkbox preference="extensions.update.autoUpdateDefault" label="extensions.update.autoUpdateDefault" />
+      <checkbox preference="extensions.update.enabled" label="extensions.update.enabled" />
+    </vbox>
+  </vbox>
+
+  <hbox>
+    <checkbox id="neonwolf-sync-checkbox" data-l10n-id="neonwolf-sync-checkbox" preference="identity.fxaccounts.enabled" flex="1" />
+    <html:label for="neonwolf-sync-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+  </hbox>
+  <vbox class="neonwolf-collapse indent">
+    <html:input type="checkbox" id="neonwolf-sync-collapse" />
+    <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+      <label data-l10n-id="neonwolf-sync-description" />
+      <html:div> <image src="chrome://browser/skin/warning.svg" /> <label data-l10n-id="neonwolf-sync-warning1" class="neonwolf-warning" /> </html:div>
+      <checkbox preference="identity.fxaccounts.enabled" label="identity.fxaccounts.enabled" />
+    </vbox>
+  </vbox>
+  
+  <hbox>
+    <checkbox id="neonwolf-autocopy-checkbox" data-l10n-id="neonwolf-autocopy-checkbox" preference="clipboard.autocopy" flex="1" />
+    <html:label for="neonwolf-autocopy-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+  </hbox>
+  <vbox class="neonwolf-collapse indent">
+    <html:input type="checkbox" id="neonwolf-autocopy-collapse" />
+    <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+      <label data-l10n-id="neonwolf-autocopy-description" />
+      <checkbox preference="clipboard.autocopy" label="clipboard.autocopy" />
+      <checkbox preference="middlemouse.paste" label="middlemouse.paste" />
+    </vbox>
+  </vbox>
+
+  <hbox>
+    <checkbox id="neonwolf-styling-checkbox" data-l10n-id="neonwolf-styling-checkbox" preference="toolkit.legacyUserProfileCustomizations.stylesheets" flex="1" />
+    <html:label for="neonwolf-styling-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+  </hbox>
+  <vbox class="neonwolf-collapse indent">
+    <html:input type="checkbox" id="neonwolf-styling-collapse" />
+    <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+      <label data-l10n-id="neonwolf-styling-description" />
+      <html:div> <image src="chrome://browser/skin/warning.svg" /> <label data-l10n-id="neonwolf-styling-warning1" class="neonwolf-warning" /> </html:div>
+      <checkbox preference="toolkit.legacyUserProfileCustomizations.stylesheets" label="toolkit.legacyUserProfileCustomizations.stylesheets" />
+    </vbox>
+  </vbox>
+
+</groupbox>
+
+<groupbox hidden="true" data-category="paneLibrewolf">
+  <html:h2 data-l10n-id="neonwolf-network-heading" />
+
+  <hbox>
+    <checkbox id="neonwolf-ipv6-checkbox" data-l10n-id="neonwolf-ipv6-checkbox" preference="network.dns.disableIPv6" flex="1" />
+    <html:label for="neonwolf-ipv6-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+  </hbox>
+  <vbox class="neonwolf-collapse indent">
+    <html:input type="checkbox" id="neonwolf-ipv6-collapse" />
+    <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+      <label data-l10n-id="neonwolf-ipv6-description" />
+      <html:div> <image src="chrome://browser/skin/warning.svg" /> <label data-l10n-id="neonwolf-ipv6-warning1" class="neonwolf-warning" /> </html:div>
+      <checkbox preference="network.dns.disableIPv6" label="network.dns.disableIPv6" />
+    </vbox>
+  </vbox>
+
+</groupbox>
+
+<groupbox hidden="true" data-category="paneLibrewolf">
+  <html:h2 data-l10n-id="neonwolf-privacy-heading" />
+
+  <hbox>
+    <checkbox id="neonwolf-xorigin-ref-checkbox" data-l10n-id="neonwolf-xorigin-ref-checkbox" preference="network.http.referer.XOriginPolicy" flex="1" />
+    <html:label for="neonwolf-xorigin-ref-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+  </hbox>
+  <vbox class="neonwolf-collapse indent">
+    <html:input type="checkbox" id="neonwolf-xorigin-ref-collapse" />
+    <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+      <label data-l10n-id="neonwolf-xorigin-ref-description" />
+      <html:div> <image src="chrome://browser/skin/warning.svg" /> <label data-l10n-id="neonwolf-xorigin-ref-warning1" class="neonwolf-warning" /> </html:div>
+      <checkbox disabled="true" preference="network.http.referer.XOriginPolicy" label="network.http.referer.XOriginPolicy" />
+    </vbox>
+  </vbox>
+
+</groupbox>
+
+<groupbox hidden="true" data-category="paneLibrewolf">
+  <html:h2 data-l10n-id="neonwolf-broken-heading" />
+
+  <hbox>
+    <checkbox id="neonwolf-rfp-checkbox" data-l10n-id="neonwolf-rfp-checkbox" preference="privacy.resistFingerprinting" flex="1" />
+    <html:label for="neonwolf-rfp-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+  </hbox>
+  <vbox class="neonwolf-collapse indent">
+    <html:input type="checkbox" id="neonwolf-rfp-collapse" />
+    <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+      <label data-l10n-id="neonwolf-rfp-description" />
+      <html:div> <image src="chrome://browser/skin/warning.svg" /> <label data-l10n-id="neonwolf-rfp-warning1" class="neonwolf-warning" /> </html:div>
+      <checkbox preference="privacy.resistFingerprinting" label="privacy.resistFingerprinting" />
+    </vbox>
+  </vbox>
+
+  <vbox class="indent">
+
+    <hbox>
+      <checkbox id="neonwolf-letterboxing-checkbox" data-l10n-id="neonwolf-letterboxing-checkbox" preference="privacy.resistFingerprinting.letterboxing" flex="1" />
+      <html:label for="neonwolf-letterboxing-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+    </hbox>
+    <vbox class="neonwolf-collapse indent">
+      <html:input type="checkbox" id="neonwolf-letterboxing-collapse" />
+      <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+        <label data-l10n-id="neonwolf-letterboxing-description" />
+        <checkbox preference="privacy.resistFingerprinting.letterboxing" label="privacy.resistFingerprinting.letterboxing" />
+      </vbox>
+    </vbox>
+
+    <hbox>
+      <checkbox id="neonwolf-auto-decline-canvas-checkbox" data-l10n-id="neonwolf-auto-decline-canvas-checkbox" preference="privacy.resistFingerprinting.autoDeclineNoUserInputCanvasPrompts" flex="1" />
+      <html:label for="neonwolf-auto-decline-canvas-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+    </hbox>
+    <vbox class="neonwolf-collapse indent">
+      <html:input type="checkbox" id="neonwolf-auto-decline-canvas-collapse" />
+      <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+        <label data-l10n-id="neonwolf-auto-decline-canvas-description" />
+        <html:div> <label data-l10n-id="neonwolf-auto-decline-canvas-warning1" class="neonwolf-warning" /> </html:div>
+        <checkbox preference="privacy.resistFingerprinting.autoDeclineNoUserInputCanvasPrompts" label="privacy.resistFingerprinting.autoDeclineNoUserInputCanvasPrompts" />
+      </vbox>
+    </vbox>
+
+  </vbox>
+
+  <hbox>
+    <checkbox id="neonwolf-webgl-checkbox" data-l10n-id="neonwolf-webgl-checkbox" preference="webgl.disabled" flex="1" />
+    <html:label for="neonwolf-webgl-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+  </hbox>
+  <vbox class="neonwolf-collapse indent">
+    <html:input type="checkbox" id="neonwolf-webgl-collapse" />
+    <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+      <label data-l10n-id="neonwolf-webgl-description" />
+      <html:div> <image src="chrome://browser/skin/warning.svg" /> <label data-l10n-id="neonwolf-webgl-warning1" class="neonwolf-warning" /> </html:div>
+      <checkbox preference="webgl.disabled" label="webgl.disabled" />
+    </vbox>
+  </vbox>
+
+
+</groupbox>
+
+<groupbox hidden="true" data-category="paneLibrewolf">
+  <html:h2 data-l10n-id="neonwolf-security-heading" />
+
+  <hbox>
+    <checkbox id="neonwolf-ocsp-checkbox" data-l10n-id="neonwolf-ocsp-checkbox" preference="security.OCSP.require" flex="1" />
+    <html:label for="neonwolf-ocsp-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+  </hbox>
+  <vbox class="neonwolf-collapse indent">
+    <html:input type="checkbox" id="neonwolf-ocsp-collapse" />
+    <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+      <label data-l10n-id="neonwolf-ocsp-description" />
+      <html:div> <image src="chrome://browser/skin/warning.svg" /> <label data-l10n-id="neonwolf-ocsp-warning1" class="neonwolf-warning" /> </html:div>
+      <checkbox preference="security.OCSP.require" label="security.OCSP.require" />
+    </vbox>
+  </vbox>
+
+  <hbox>
+    <checkbox id="neonwolf-goog-safe-checkbox" data-l10n-id="neonwolf-goog-safe-checkbox" preference="browser.safebrowsing.malware.enabled" flex="1" />
+    <html:label for="neonwolf-goog-safe-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+  </hbox>
+  <vbox class="neonwolf-collapse indent">
+    <html:input type="checkbox" id="neonwolf-goog-safe-collapse" />
+    <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+      <label data-l10n-id="neonwolf-goog-safe-description" />
+      <html:div> <image src="chrome://browser/skin/warning.svg" /> <label data-l10n-id="neonwolf-goog-safe-warning1" class="neonwolf-warning" /> </html:div>
+      <checkbox preference="browser.safebrowsing.malware.enabled" label="browser.safebrowsing.malware.enabled" />
+      <checkbox preference="browser.safebrowsing.phishing.enabled" label="browser.safebrowsing.phishing.enabled" />
+      <checkbox preference="browser.safebrowsing.blockedURIs.enabled" label="browser.safebrowsing.blockedURIs.enabled" />
+      <checkbox preference="browser.safebrowsing.provider.google4.gethashURL" label="browser.safebrowsing.provider.google4.gethashURL" id="neonwolf-goog-safe-hash4"/>
+      <checkbox preference="browser.safebrowsing.provider.google4.updateURL" label="browser.safebrowsing.provider.google4.updateURL" id="neonwolf-goog-safe-up4"/>
+      <checkbox preference="browser.safebrowsing.provider.google.gethashURL" label="browser.safebrowsing.provider.google.gethashURL" id="neonwolf-goog-safe-hash"/>
+      <checkbox preference="browser.safebrowsing.provider.google.updateURL" label="browser.safebrowsing.provider.google.updateURL" id="neonwolf-goog-safe-up"/>
+    </vbox>
+  </vbox>
+
+  <vbox class="indent">
+    <hbox>
+      <checkbox id="neonwolf-goog-safe-download-checkbox" data-l10n-id="neonwolf-goog-safe-download-checkbox" preference="browser.safebrowsing.downloads.enabled" flex="1" />
+      <html:label for="neonwolf-goog-safe-download-collapse" class="sidebar-footer-link" pack="end"> <image class="sidebar-footer-icon help-icon"/> </html:label>
+    </hbox>
+    <vbox class="neonwolf-collapse indent">
+      <html:input type="checkbox" id="neonwolf-goog-safe-download-collapse" />
+      <vbox class="neonwolf-collapsed tracking-protection-ui content-blocking-category">
+        <label data-l10n-id="neonwolf-goog-safe-download-description" />
+        <html:div> <image src="chrome://browser/skin/warning.svg" /> <label data-l10n-id="neonwolf-goog-safe-download-warning1" class="neonwolf-warning" /> </html:div>
+        <checkbox preference="browser.safebrowsing.downloads.enabled" label="browser.safebrowsing.downloads.enabled" />
+      </vbox>
+    </vbox>
+  </vbox>
+
+</groupbox>
+
+<hbox class="subcategory" hidden="true" data-category="paneLibrewolf">
+    <html:h1 data-l10n-id="neonwolf-footer"/>
+</hbox>
+
+<groupbox data-category="paneLibrewolf" hidden="true">
+  <vbox align="start">
+    <hbox>
+      <button id="neonwolf-config-link" is="highlightable-button" flex="1">
+        <image class="neonwolf-button-icon" src="chrome://browser/skin/ion.svg" /> <!-- TODO not the typical way a picture is defined I think, and also we should copy the svg file in case they change it -->
+        <label data-l10n-id="neonwolf-config-link"></label>
+      </button>
+      <button id="neonwolf-open-profile" is="highlightable-button" flex="1">
+        <image class="neonwolf-button-icon" src="chrome://browser/skin/open.svg" />
+        <label data-l10n-id="neonwolf-open-profile"></label>
+      </button>
+    </hbox>
+  </vbox>
+</groupbox>
+
+</html:template>

@@ -1,0 +1,42 @@
+# Firefox build dirs
+firefox-*/
+neonwolf-*/
+
+# Build artifacts
+*.o
+*.obj
+*.lib
+*.dll
+*.so
+*.dylib
+*.exp
+*.pdb
+*.ilk
+*.manifest
+
+# Mozilla build
+obj-*/
+MOZCONFIG
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Python cache
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*
+
+# Source archives
+*.source.tar.xz
+*.source.tar.gz
+*.source.tar.bz2
+*.tar.xz
+*.tar.gz
+*.tar.bz2

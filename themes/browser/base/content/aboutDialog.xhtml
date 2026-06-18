@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+
+<!DOCTYPE dialog [
+  <!ENTITY % browserDTD SYSTEM "chrome://branding/locale/brand.dtd">
+  %browserDTD;
+]>
+
+<dialog id="aboutDialog"
+        windowtype="Browser:About"
+        xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+        xmlns:html="http://www.w3.org/1999/xhtml"
+        title="&brandFullName;"
+        buttons="accept"
+        role="dialog"
+        onload="init();"
+        width="620"
+        style="min-height: 400px">
+
+  <script src="chrome://browser/content/aboutDialog.js"/>
+  <link rel="stylesheet" href="chrome://browser/skin/aboutDialog.css"/>
+
+  <vbox id="pmContent" flex="1">
+    <hbox id="pmHeader" align="center" pack="center">
+      <vbox id="pmHeaderBox" align="center">
+        <image id="neonwolfLogo" src="chrome://branding/content/about-logo.png" width="128" height="128"/>
+        <label id="brandName" crop="end" value="&brandShortName;"/>
+        <label id="version" crop="end"/>
+      </vbox>
+    </hbox>
+
+    <separator class="thin"/>
+
+    <description id="community" value="&community.description2;"/>
+    <description id="contributeDesc" value="&contribute;"/>
+
+    <hbox id="pmLinks" pack="center" gap="16">
+      <label class="text-link" id="neonwolfLink"
+             href="https://neonwolf.browser"
+             value="&getInvolved.label;"/>
+      <label class="text-link" id="neonwolfShieldsLink"
+             href="https://neonwolf.browser/shields"
+             value="Neonwolf Shields"/>
+    </hbox>
+
+    <spacer flex="1"/>
+    <hbox id="bottomBox" pack="center">
+      <description id="copyright" value="&copyright.1;"/>
+    </hbox>
+  </vbox>
+
+</dialog>

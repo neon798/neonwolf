@@ -1,0 +1,29 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+DIST_SUBDIR = "browser"
+export("DIST_SUBDIR")
+
+include("../branding-common.mozbuild")
+FirefoxBranding()
+
+FINAL_TARGET_FILES.chrome.icons.default += [
+    "about-logo.png",
+    "default256.png",
+]
+
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
+    FINAL_TARGET_FILES[".."] += [
+        "neonwolf.VisualElementsManifest.xml",
+        "private_browsing.VisualElementsManifest.xml",
+    ]
+    FINAL_TARGET_FILES.VisualElements += [
+        "PrivateBrowsing_16.png",
+        "PrivateBrowsing_32.png",
+        "PrivateBrowsing_48.png",
+        "VisualElements_48.png",
+        "VisualElements_256.png",
+        "VisualElementsManifest.48.png",
+        "VisualElementsManifest.256.png",
+    ]

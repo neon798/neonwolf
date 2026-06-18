@@ -1,0 +1,53 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#aboutDialog {
+  background: linear-gradient(180deg, #0d001a 0%, #1a0028 30%, #2d004f 60%, #1a0033 100%);
+  color: #e0b0ff;
+}
+
+#aboutDialog #brandName {
+  color: #ff00ff;
+  text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 40px #ff00ff;
+}
+
+#aboutDialog #version {
+  color: #00ffff;
+  text-shadow: 0 0 5px #00ffff;
+}
+
+#aboutDialog #community {
+  color: #ff6ec7;
+}
+
+#aboutDialog #contributeDesc {
+  color: #b0b0ff;
+}
+
+#aboutDialog .text-link {
+  color: #00ffff;
+}
+
+#aboutDialog .text-link:hover {
+  color: #ff00ff;
+  text-decoration: underline;
+}
+
+#aboutDialog #closeButton {
+  background: linear-gradient(90deg, #ff00ff, #00ffff);
+  border: none;
+  color: #000;
+  font-weight: bold;
+}
+
+#aboutDialog #closeButton:hover {
+  background: linear-gradient(90deg, #ff6ec7, #00ffff);
+}
+
+#aboutDialog #pmContent {
+  background: rgba(13, 0, 26, 0.5);
+  border: 1px solid #ff00ff;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(255, 0, 255, 0.3);
+}
