@@ -25,6 +25,12 @@
 /* Main browser chrome */
 #main-window {
   background: var(--neonwolf-bg-darkest) !important;
+  --lwt-accent-color: var(--neonwolf-bg-darkest) !important;
+  --lwt-text-color: var(--neonwolf-text-secondary) !important;
+  --toolbar-bgcolor: var(--neonwolf-bg-darkest) !important;
+  --toolbar-color: var(--neonwolf-text-secondary) !important;
+  --tabs-navbar-separator-color: transparent !important;
+  --chrome-content-separator-color: var(--neonwolf-border-pink) !important;
 }
 
 #navigator-toolbox {
@@ -78,35 +84,93 @@
 }
 
 /* Tab bar */
-.tabbrowser-tab {
+#TabsToolbar {
+  --tab-background-color: var(--neonwolf-bg-darkest) !important;
+  --tab-selected-background-color: linear-gradient(180deg, var(--neonwolf-bg-mid) 0%, var(--neonwolf-bg-dark) 100%) !important;
+  --tab-hover-background-color: var(--neonwolf-bg-dark) !important;
+}
+
+#tabbrowser-tabs {
   background: var(--neonwolf-bg-darkest) !important;
+}
+
+.tabbrowser-tab {
+  color: var(--neonwolf-text-secondary) !important;
+}
+
+.tab-background {
+  background: var(--neonwolf-bg-darkest) !important;
+  border-radius: 4px 4px 0 0 !important;
   border: 1px solid transparent !important;
 }
 
-.tabbrowser-tab[selected] {
+.tabbrowser-tab[selected] .tab-background,
+.tabbrowser-tab[visuallyselected] .tab-background {
   background: linear-gradient(180deg, var(--neonwolf-bg-mid) 0%, var(--neonwolf-bg-dark) 100%) !important;
   border: 1px solid var(--neonwolf-accent-pink) !important;
   border-bottom: none !important;
   box-shadow: var(--neonwolf-glow-pink) !important;
 }
 
-.tabbrowser-tab .tab-label {
-  color: var(--neonwolf-text-secondary) !important;
+.tab-background[multiselected] {
+  background: linear-gradient(180deg, var(--neonwolf-bg-mid) 0%, var(--neonwolf-bg-dark) 100%) !important;
+  border: 1px solid var(--neonwolf-accent-cyan) !important;
 }
 
-.tabbrowser-tab[selected] .tab-label {
+.tabbrowser-tab:hover .tab-background:not([selected]):not([visuallyselected]) {
+  background: var(--neonwolf-bg-dark) !important;
+  border-color: rgba(255, 0, 255, 0.15) !important;
+}
+
+/* Tab line (the top highlight line on selected tab) */
+.tab-line {
+  background: var(--neonwolf-accent-cyan) !important;
+}
+
+.tab-line[selected],
+.tab-line[visuallyselected] {
+  background: var(--neonwolf-accent-pink) !important;
+  box-shadow: 0 0 4px var(--neonwolf-accent-pink) !important;
+}
+
+.tabbrowser-tab .tab-label {
+  color: var(--neonwolf-accent-cyan) !important;
+}
+
+.tabbrowser-tab[selected] .tab-label,
+.tabbrowser-tab[visuallyselected] .tab-label {
   color: var(--neonwolf-accent-pink) !important;
   text-shadow: 0 0 5px var(--neonwolf-accent-pink) !important;
 }
 
-/* Tab close button */
-.tab-close-button {
-  fill: var(--neonwolf-text-dim) !important;
+/* Tab icon */
+.tab-icon-image {
+  fill: var(--neonwolf-text-secondary) !important;
 }
 
-.tab-close-button:hover {
+.tabbrowser-tab[selected] .tab-icon-image,
+.tabbrowser-tab[visuallyselected] .tab-icon-image {
   fill: var(--neonwolf-accent-pink) !important;
-  background: rgba(255, 0, 255, 0.1) !important;
+}
+
+/* Tab separator / border between tabs */
+.tabbrowser-tab::after,
+.tabbrowser-tab::before {
+  border-color: rgba(255, 0, 255, 0.1) !important;
+}
+
+/* Tab close button */
+.tab-close-button,
+.close-icon {
+  fill: var(--neonwolf-text-dim) !important;
+  background: transparent !important;
+  border-radius: 2px !important;
+}
+
+.tab-close-button:hover,
+.close-icon:hover {
+  fill: var(--neonwolf-accent-pink) !important;
+  background: rgba(255, 0, 255, 0.15) !important;
 }
 
 /* New tab button */

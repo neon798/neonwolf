@@ -1,0 +1,27 @@
+# Neonwolf neonwolf-logo-devtools.patch
+#
+# Description:   Routes about:debugging icon to neonwolf SVG (actual file copy handled by neonwolf-patches.py)
+# License:       MPL 2.0
+--- a/devtools/client/aboutdebugging/src/actions/runtimes.js
++++ b/devtools/client/aboutdebugging/src/actions/runtimes.js
+@@ -71,9 +71,7 @@ async function getRuntimeIcon(runtime, channel) {
+     }
+   }
+
+-  return channel === "release" || channel === "beta" || channel === "aurora"
+-    ? `chrome://devtools/skin/images/aboutdebugging-firefox-${channel}.svg`
+-    : "chrome://devtools/skin/images/aboutdebugging-firefox-nightly.svg";
++  return "chrome://devtools/skin/images/aboutdebugging-firefox-neonwolf.svg";
+ }
+
+ function onRemoteDevToolsClientClosed() {
+--- a/devtools/client/jar.mn
++++ b/devtools/client/jar.mn
+@@ -374,6 +374,7 @@ devtools.jar:
+     skin/images/aboutdebugging-firefox-logo.svg (themes/images/aboutdebugging-firefox-logo.svg)
+     skin/images/aboutdebugging-firefox-nightly.svg (themes/images/aboutdebugging-firefox-nightly.svg)
+     skin/images/aboutdebugging-firefox-release.svg (themes/images/aboutdebugging-firefox-release.svg)
++    skin/images/aboutdebugging-firefox-neonwolf.svg (themes/images/aboutdebugging-firefox-neonwolf.svg)
+     skin/images/aboutdebugging-globe-icon.svg (themes/images/aboutdebugging-globe-icon.svg)
+     skin/images/aboutdebugging-information.svg (themes/images/aboutdebugging-information.svg)
+     skin/images/aboutdebugging-process-icon.svg (themes/images/aboutdebugging-process-icon.svg)

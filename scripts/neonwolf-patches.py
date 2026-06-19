@@ -97,6 +97,18 @@ def neonwolf_patches():
     # copy the right search-config.json file
     exec('cp -v ../assets/search-config.json services/settings/dumps/main/search-config.json')
 
+    # copy neonwolf replacement assets over Firefox-branded ones
+    exec('cp -v ../assets/neonwolf-newtab-logo.svg browser/components/newtab/data/content/assets/firefox.svg')
+    exec('cp -v ../assets/neonwolf-firefox-view.svg browser/themes/shared/icons/firefox-view.svg')
+    # replace all devtools about:debugging Firefox channel SVGs with the neonwolf logo
+    exec('cp -v ../themes/browser/base/content/icons/neonwolf-logo.svg devtools/client/themes/images/aboutdebugging-firefox-neonwolf.svg')
+    exec('cp -v ../themes/browser/base/content/icons/neonwolf-logo.svg devtools/client/themes/images/aboutdebugging-firefox-aurora.svg')
+    exec('cp -v ../themes/browser/base/content/icons/neonwolf-logo.svg devtools/client/themes/images/aboutdebugging-firefox-beta.svg')
+    exec('cp -v ../themes/browser/base/content/icons/neonwolf-logo.svg devtools/client/themes/images/aboutdebugging-firefox-nightly.svg')
+    exec('cp -v ../themes/browser/base/content/icons/neonwolf-logo.svg devtools/client/themes/images/aboutdebugging-firefox-release.svg')
+    exec('cp -v ../themes/browser/base/content/icons/neonwolf-logo.svg devtools/client/themes/images/aboutdebugging-firefox-logo.svg')
+    exec('cp -v ../themes/browser/base/content/icons/neonwolf-logo.svg devtools/client/themes/images/browsers/firefox.svg')
+
     # read lines of .txt file into 'patches'
     with open('../assets/patches.txt'.format(version), "r") as f:
         for line in f.readlines():
