@@ -33,6 +33,9 @@ __pycache__/
 .vscode/
 *.sublime-*
 
+# AppImage
+*.AppImage
+
 # Source archives
 *.source.tar.xz
 *.source.tar.gz
