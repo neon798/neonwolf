@@ -9,7 +9,7 @@ on:
 
 env:
   NEONWOLF_VERSION: "129.0"
-  NEONWOLF_RELEASE: "1"
+  NEONWOLF_RELEASE: "2"
 
 jobs:
   build:
