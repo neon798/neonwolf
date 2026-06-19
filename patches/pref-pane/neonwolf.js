@@ -51,12 +51,12 @@ Preferences.addAll([
   },
 ]);
 
-var gLibrewolfPane = {
+var gNeonwolfPane = {
   _pane: null,
 
   // called when the document is first parsed
   init() {
-    this._pane = document.getElementById("paneLibrewolf");
+    this._pane = document.getElementById("paneNeonwolf");
 
     // Set all event listeners on checkboxes
     setBoolSyncListeners(

@@ -1,0 +1,12 @@
+.git/
+.gitignore
+.forgejo/
+neonwolf-129.0-1/
+l10n/
+__pycache__/
+*.pyc
+.DS_Store
+.Dockerfile
+*.swp
+*.swo
+*~

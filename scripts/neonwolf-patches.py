@@ -102,6 +102,25 @@ def neonwolf_patches():
         for line in f.readlines():
             patch('../'+line)
 
+    # add neonwolf-theme.css to jar.mn so it gets packaged into omni.ja
+    with open('browser/base/jar.mn', 'r') as f:
+        jarmn = f.read()
+    jarmn = jarmn.replace(
+        'content/browser/contentTheme.js                     (content/contentTheme.js)',
+        'content/browser/contentTheme.js                     (content/contentTheme.js)\n        content/browser/neonwolf-theme.css                  (content/neonwolf-theme.css)'
+    )
+    with open('browser/base/jar.mn', 'w') as f:
+        f.write(jarmn)
+    # load neonwolf-theme.css from browser.xhtml
+    with open('browser/base/content/browser.xhtml', 'r') as f:
+        bxhtml = f.read()
+    bxhtml = bxhtml.replace(
+        '<link rel="stylesheet" href="chrome://browser/skin/places/editBookmark.css" />',
+        '<link rel="stylesheet" href="chrome://browser/skin/places/editBookmark.css" />\n  <link rel="stylesheet" href="chrome://browser/content/neonwolf-theme.css" />'
+    )
+    with open('browser/base/content/browser.xhtml', 'w') as f:
+        f.write(bxhtml)
+
     # apply xmas.patch seperately because not all builders use this repo the same way, and
     # we don't want to disturbe those workflows.
     patch('../patches/xmas.patch')
