@@ -119,7 +119,7 @@ def neonwolf_patches():
         jarmn = f.read()
     jarmn = jarmn.replace(
         'content/browser/contentTheme.js                     (content/contentTheme.js)',
-        'content/browser/contentTheme.js                     (content/contentTheme.js)\n        content/browser/neonwolf-theme.css                  (content/neonwolf-theme.css)'
+        'content/browser/contentTheme.js                     (content/contentTheme.js)\n        content/browser/neonwolf-theme.css                  (content/neonwolf-theme.css)\n        content/browser/synthwave-mountains.svg            (content/synthwave-mountains.svg)'
     )
     with open('browser/base/jar.mn', 'w') as f:
         f.write(jarmn)
@@ -132,6 +132,68 @@ def neonwolf_patches():
     )
     with open('browser/base/content/browser.xhtml', 'w') as f:
         f.write(bxhtml)
+
+    # copy synthwave mountains SVG for newtab background
+    exec('cp -v ../themes/browser/base/content/icons/synthwave-mountains.svg browser/base/content/')
+
+    # append synthwave newtab CSS to activity-stream.css so it reaches about:newtab
+    with open('browser/components/newtab/css/activity-stream.css', 'a') as f:
+        import base64
+        with open('../themes/browser/base/content/icons/neonwolf-logo.svg', 'rb') as lf:
+            logo_b64 = base64.b64encode(lf.read()).decode()
+        logo_uri = 'data:image/svg+xml;base64,' + logo_b64
+        f.write(
+            '\n'
+            '/* === Neonwolf Synthwave New Tab Background === */\n'
+            'body {\n'
+            '  background: linear-gradient(180deg,\n'
+            '    #0d001a 0%,\n'
+            '    #1a0033 15%,\n'
+            '    #2d0050 30%,\n'
+            '    #4a0070 45%,\n'
+            '    #8b0060 55%,\n'
+            '    #ff0040 62%,\n'
+            '    #ff6600 67%,\n'
+            '    #ffcc00 71%,\n'
+            '    #ffe600 73%,\n'
+            '    #ffcc00 75%,\n'
+            '    #ff6600 77%,\n'
+            '    #ff00ff 79%,\n'
+            '    #b000ff 82%,\n'
+            '    #0d001a 100%\n'
+            '  ) !important;\n'
+            '  background-position: center bottom !important;\n'
+            '  background-repeat: no-repeat !important;\n'
+            '  background-size: cover !important;\n'
+            '}\n'
+            '/* Neonwolf logo above mountains */\n'
+            'body::before {\n'
+            '  content: "";\n'
+            '  position: fixed;\n'
+            '  top: 38%;\n'
+            '  left: 50%;\n'
+            '  width: 420px;\n'
+            '  height: 420px;\n'
+            '  transform: translate(-50%, 0);\n'
+            '  background: url("' + logo_uri + '") no-repeat center;\n'
+            '  background-size: contain;\n'
+            '  pointer-events: none;\n'
+            '  z-index: 3;\n'
+            '}\n'
+            '/* Mountains + grid overlay */\n'
+            'body::after {\n'
+            '  content: "";\n'
+            '  position: fixed;\n'
+            '  bottom: 0;\n'
+            '  left: 0;\n'
+            '  width: 100%;\n'
+            '  height: 35%;\n'
+            '  background: url("chrome://browser/content/synthwave-mountains.svg") no-repeat center top;\n'
+            '  background-size: cover;\n'
+            '  pointer-events: none;\n'
+            '  z-index: 2;\n'
+            '}\n'
+        )
 
     # apply xmas.patch seperately because not all builders use this repo the same way, and
     # we don't want to disturbe those workflows.

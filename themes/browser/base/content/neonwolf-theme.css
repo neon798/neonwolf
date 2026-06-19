@@ -298,46 +298,6 @@ panel .toolbarbutton-1:hover {
   scrollbar-color: var(--neonwolf-accent-pink) var(--neonwolf-bg-darkest) !important;
 }
 
-/* Synthwave grid overlay for the new tab background */
-@-moz-document url("about:newtab"), url("about:home") {
-  body {
-    background: linear-gradient(180deg,
-      var(--neonwolf-bg-darkest) 0%,
-      var(--neonwolf-bg-dark) 30%,
-      var(--neonwolf-bg-mid) 60%,
-      var(--neonwolf-bg-light) 80%,
-      #ff00ff 90%,
-      #00ffff 95%,
-      var(--neonwolf-bg-darkest) 100%) !important;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background:
-      repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 40px,
-        rgba(255, 0, 255, 0.03) 40px,
-        rgba(255, 0, 255, 0.03) 41px
-      ),
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 40px,
-        rgba(0, 255, 255, 0.03) 40px,
-        rgba(0, 255, 255, 0.03) 41px
-      );
-    pointer-events: none;
-    z-index: 0;
-  }
-}
-
 /* Identity box (site security) */
 #identity-box {
   color: var(--neonwolf-text-secondary) !important;

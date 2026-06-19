@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 480" width="1920" height="480" preserveAspectRatio="xMidYMax slice">
+  <defs>
+    <linearGradient id="floorGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff00ff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#00ffff" stop-opacity="0.05"/>
+    </linearGradient>
+    <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+      <line x1="50" y1="0" x2="50" y2="50" stroke="#ff00ff" stroke-width="0.5" opacity="0.15"/>
+      <line x1="0" y1="50" x2="50" y2="50" stroke="#00ffff" stroke-width="0.5" opacity="0.1"/>
+    </pattern>
+  </defs>
+  <!-- Stars scattered in sky -->
+  <circle cx="120" cy="40" r="1.5" fill="#fff" opacity="0.8"/>
+  <circle cx="340" cy="80" r="1" fill="#fff" opacity="0.6"/>
+  <circle cx="560" cy="30" r="1.5" fill="#fff" opacity="0.7"/>
+  <circle cx="720" cy="60" r="1" fill="#fff" opacity="0.5"/>
+  <circle cx="890" cy="20" r="2" fill="#fff" opacity="0.9"/>
+  <circle cx="1050" cy="70" r="1" fill="#fff" opacity="0.6"/>
+  <circle cx="1320" cy="45" r="1.5" fill="#fff" opacity="0.7"/>
+  <circle cx="1500" cy="25" r="1" fill="#fff" opacity="0.5"/>
+  <circle cx="1680" cy="55" r="1.5" fill="#fff" opacity="0.8"/>
+  <circle cx="1840" cy="35" r="1" fill="#fff" opacity="0.6"/>
+  <circle cx="200" cy="100" r="1" fill="#fff" opacity="0.4"/>
+  <circle cx="480" cy="50" r="1" fill="#fff" opacity="0.5"/>
+  <circle cx="960" cy="95" r="1.5" fill="#fff" opacity="0.7"/>
+  <circle cx="1400" cy="85" r="1" fill="#fff" opacity="0.4"/>
+  <circle cx="1780" cy="90" r="1" fill="#fff" opacity="0.5"/>
+  <!-- Mountains layer 3 (farthest, lighter) -->
+  <polygon points="0,480 0,200 160,140 320,220 500,100 640,180 800,120 960,200 1120,90 1280,170 1440,110 1600,190 1760,130 1920,210 1920,480" fill="#2d0050"/>
+  <!-- Mountains layer 2 (mid) -->
+  <polygon points="0,480 0,220 200,160 400,250 600,140 750,220 900,130 1100,210 1300,120 1500,200 1700,140 1920,230 1920,480" fill="#1a0033"/>
+  <!-- Mountains layer 1 (closest, darkest) -->
+  <polygon points="0,480 0,280 150,200 350,300 550,190 700,270 900,160 1050,250 1200,170 1400,260 1600,180 1800,250 1920,200 1920,480" fill="#0d001a"/>
+  <!-- Ground fill -->
+  <polygon points="0,400 0,480 1920,480 1920,400" fill="url(#floorGrad)"/>
+  <!-- Grid overlay on ground -->
+  <rect x="0" y="390" width="1920" height="90" fill="url(#grid)"/>
+  <!-- Horizon line -->
+  <line x1="0" y1="390" x2="1920" y2="390" stroke="#ff00ff" stroke-width="1" opacity="0.3"/>
+</svg>
