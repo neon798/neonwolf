@@ -180,10 +180,21 @@ The first line of the active autoconfig file (`librewolf.cfg`) **must** be a
 also starts with `//`.
 
 ### Version bumps
-Update the `version` and `release` files. CI (`.forgejo/workflows/`) detects the
-Firefox version automatically (`scripts/detect-firefox-version.sh`); the
-Makefile reads `version`/`release`. The Docker/CI path no longer hardcodes the
-version the way the old 129 setup did.
+Update the `version` and `release` files; the Makefile reads them. The Docker/CI
+path no longer hardcodes the version the way the old 129 setup did.
+
+### CI
+The repo lives on **GitHub**, where `.github/workflows/check-patches.yml` runs
+the real CI: on push (`main`/`beta`/`rebase/**`), PRs, and manual dispatch it
+fetches the **pinned** Firefox source (`./version`) and runs `make dir` —
+validating that all patches + the Neonwolf delta (pref-pane patch, fail-loud
+theme injections, settings overlay, l10n) apply cleanly. It does **not** compile
+(too heavy for hosted runners); `make check-patchfail` is the equivalent local
+check. The **`.forgejo/workflows/`** are inherited upstream LibreWolf config —
+they only run on Codeberg/Forgejo, still reference `librewolf-*` artifacts and
+`detect-firefox-version.sh` (track-latest-stable), and are left **dormant and
+untouched** so upstream merges stay clean. Only adapt them if mirroring to
+Forgejo.
 
 ### Launch with `LANG=en_US.UTF-8`
 Always set `LANG=en_US.UTF-8` when launching, or Firefox may fall back to CJK
