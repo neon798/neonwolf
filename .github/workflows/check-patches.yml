@@ -1,0 +1,58 @@
+name: Check patches
+
+# Patch-apply validation for the Neonwolf overlay. The repo lives on GitHub,
+# so this runs here (the .forgejo/ workflows are inherited upstream LibreWolf
+# config and only run on Codeberg/Forgejo). This does NOT compile Firefox — a
+# full build needs ~hours and far more RAM/disk than a hosted runner has. It
+# validates the thing that actually breaks on FF bumps / upstream merges: that
+# every patch and the Neonwolf delta still apply cleanly.
+#
+# Pinned to the ./version file (152.0.1), not Mozilla's latest stable.
+
+on:
+  push:
+    branches: [main, beta, 'rebase/**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: check-patches-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  make-dir:
+    name: Apply patches + Neonwolf overlay (make dir)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with settings submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            make python3 curl gnupg unzip patch xz-utils tar
+
+      - name: Read pinned Firefox version
+        id: ver
+        run: echo "version=$(cat version)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Firefox source tarball
+        uses: actions/cache@v4
+        with:
+          path: firefox-${{ steps.ver.outputs.version }}.source.tar.xz
+          key: ff-src-${{ steps.ver.outputs.version }}
+
+      - name: Fetch Firefox source (curl + gpg verify)
+        run: make fetch
+
+      # make dir runs scripts/neonwolf-patches.py end to end: applies every
+      # patch in assets/patches.txt + xmas.patch, the pref-pane patch, the
+      # fail-loud theme injections (replace_or_die / require_file), the
+      # settings overlay, and the l10n fetch+rebrand. Any patch reject or a
+      # moved injection anchor aborts the build with a named error.
+      - name: Apply all patches + Neonwolf overlay
+        run: make dir
