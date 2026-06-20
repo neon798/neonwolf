@@ -1,3 +1,7 @@
 /firefox-*
 /librewolf-*
 /mozilla-unified
+/neonwolf-*
+/docker-dist
+*.log
+patchfail.out

@@ -84,7 +84,7 @@ small, clearly-marked Neonwolf delta**. `make dir` calls it with
 4. Copies `themes/browser/` tree in (branding + synthwave theme assets)
 5. **Synthwave theme injection (fail-loud)** — see below
 6. **Settings overlay** — `settings/librewolf.cfg` (from submodule) + `assets/neonwolf.overrides.cfg` appended; `policies.json` and `local-settings.js` from the submodule
-7. Applies the **upstream LibreWolf pref pane** (`pref-pane-small.patch`, `paneLibrewolf`); a Neonwolf rebrand of the pane is a TODO, intentionally left identical to upstream for now to stay buildable
+7. Applies the LibreWolf pref-pane machinery (`pref-pane-small.patch`, `paneLibrewolf`), rebranded for display: the nav icon is `category-neonwolf.svg` and the shown strings read "Neonwolf" (see Naming conventions). Internal `librewolf-*` identifiers are kept on purpose to preserve translation-key matches and clean upstream merges.
 8. Fetches l10n from `mozilla-l10n/firefox-l10n` (via curl), rebrands `appstrings.properties`, applies Neonwolf locales
 
 ### Theme injection (fail-loud — this changed in the migration)
