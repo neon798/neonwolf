@@ -1,244 +1,114 @@
-# LibreWolf Source Repository
+# Neonwolf
 
-This repository contains all the patches and theming that make up LibreWolf,
-as well as scripts and a Makefile to build LibreWolf.
-There also is the [Settings repository](https://codeberg.org/librewolf/settings),
-which contains the LibreWolf preferences.
+**Neonwolf** is a synthwave-themed, privacy-focused fork of Firefox, built as a
+**thin overlay on [LibreWolf](https://librewolf.net)**. It takes a stock Firefox
+release, runs LibreWolf's privacy/hardening patch pipeline, and layers on a small,
+clearly-marked Neonwolf delta — a synthwave chrome theme, a glowing new-tab page,
+and Neonwolf branding — to produce the Neonwolf browser.
 
-## LibreWolf overview
+Current base: **Firefox 152.0.1** (LibreWolf 152). Linux x86-64 is the supported
+and tested target.
+
+> This is a **patch-distribution repository**, not a copy of the browser source.
+> It holds patches, branding, theme CSS, build config, and a Python orchestrator;
+> the Firefox source tarball is downloaded and patched at build time.
+
+## How it's built
 
 ```mermaid
 graph LR
-    FFSRC(Firefox Source)
-
-    FFSRC--Tarball--->Source
-
-    subgraph LibreWolf/
-    Settings(Settings)--"librewolf.cfg<br>policies.json"-->Source
-    Website(Website<br><br>- Documentation<br>- FAQ)
-    subgraph Browser/
-        Source(Source<br><br>- Patches<br>- Theming<br>- Build scripts)
-        bsys6(bsys6<br><br>New Docker building<br>repository)
-        AppImage
-        ArchGentoo["Arch / Gentoo"]
-    end
-    end
-    Website-->librewolf.net
-    Source--"Source tarball"-->bsys6
-    AppImage--".appimage"-->librewolf.net
-    bsys6--"Windows setup.exe"--->librewolf.net
-    bsys6--"Windows portable.zip"--->librewolf.net
-    bsys6--"Windows .msix"--->MS("Microsoft Store")
-    bsys6--"Windows .nupkg"--->Chocolatey
-    bsys6--"Linux binary tarball"--->Flathub
-    bsys6--"Linux binary tarball"--> AppImage
-    bsys6--"Linux .deb"--->repo.librewolf.net
-    bsys6--"Linux .rpm"--->repo.librewolf.net
-    bsys6--"Linux binary tarball<br>for 'librewolf-bin'"--> ArchGentoo
-    Source--"Source tarball<br>for 'librewolf'"-->ArchGentoo
-    ArchGentoo-->AUR_Overlay["AUR / Overlay"]
+    FF(Firefox 152.0.1<br>source tarball)
+    LW(LibreWolf patches<br>+ settings submodule)
+    NW(Neonwolf delta<br>theme · branding · pref overrides)
+    OUT(Neonwolf browser)
+    FF --> LW --> NW --> OUT
 ```
 
-## Active repositories and projects
+The privacy/hardening baseline comes from the
+[LibreWolf settings](https://codeberg.org/librewolf/settings) repo, tracked here
+as the `settings/` git submodule. The guiding principle is to **stay as close to
+upstream LibreWolf as possible** — the Neonwolf changes are a minimal, marked
+delta so version bumps stay close to a `git merge upstream` away.
 
-List of browser build sub projects.
-These are the locations where people have their repositories and build artifacts.
+## Download
 
-Currently active build repositories:
-
-* [Arch](https://codeberg.org/librewolf/arch): Arch Linux package.
-* [Bsys6](https://codeberg.org/librewolf/bsys6): `.deb`/`.rpm` for Mint,
-Fedora, Ubuntu; `.dmg` for MacOS; portable/setup for Windows.
-* [Gentoo](https://codeberg.org/librewolf/gentoo): Gentoo package.
-
-Downstream distribution packages:
-
-* [Alpine Linux aport](https://pkgs.alpinelinux.org/packages?name=librewolf&arch=).
-
-Previous forks:
-
-* Cachy-Browser: <https://github.com/cachyos/cachyos-browser-settings>
-* FireDragon: <https://github.com/dr460nf1r3/firedragon-browser>
-
-## LibreWolf Build
-
-There are two ways to build LibreWolf.
-You can either use the source tarball
-or compile directly with this repository.
-
-### Build using tarball
-
-First, let's **[download the latest tarball](https://codeberg.org/librewolf/source/releases)**.
-This tarball is the latest produced by the [CI](https://codeberg.org/librewolf/source/actions?workflow=source-release.yaml).
-You can also check the `sha256sum` of the tarball there.
+Prebuilt Linux x86-64 builds are published on the
+[Releases page](https://github.com/neon798/neonwolf/releases). Each release ships
+a `.tar.xz` and a matching `.sha256sum`.
 
 ```sh
-tar xf <tarball>
-cd <folder>
+sha256sum -c neonwolf-152.0.1-1.en-US.linux-x86_64.tar.xz.sha256sum
+tar xf neonwolf-152.0.1-1.en-US.linux-x86_64.tar.xz
+LANG=en_US.UTF-8 MOZ_ENABLE_WAYLAND=1 ./neonwolf/neonwolf
 ```
 
-Then, you have to bootstrap your system to be able to build LibreWolf.
-You only have to do this one time.
-It is done by running the following commands:
+(On X11 sessions, drop `MOZ_ENABLE_WAYLAND=1`. Setting `LANG` avoids a CJK locale
+fallback.)
+
+## Build from this repository
+
+All targets go through `make`. Version is read from `./version` (`152.0.1`),
+release from `./release` (`1`).
 
 ```sh
-./mach --no-interactive bootstrap --application-choice=browser
-```
+git clone --recursive https://github.com/neon798/neonwolf.git
+cd neonwolf
 
-Finally you can build LibreWolf and then package or run it with the following commands:
-
-```sh
-./mach build
-./mach package
+make fetch        # download + gpg-verify the Firefox source tarball
+make dir          # extract + apply all patches and the Neonwolf overlay
+make bootstrap    # install build deps + ./mach bootstrap (one time)
+make build        # ./mach build (takes a while)
+make package      # produce the distributable .tar.xz in the repo root
 # OR
-./mach run
+make run          # build and launch
 ```
 
-### Build using repository
+The patched tree is extracted to `neonwolf-{version}-{release}/`
+(e.g. `neonwolf-152.0.1-1/`); the built binary lands at
+`neonwolf-152.0.1-1/obj-x86_64-pc-linux-gnu/dist/bin/neonwolf`.
 
-First, clone this repository with Git:
+> **Resuming an interrupted build:** run `./mach build` **inside** the source
+> tree, not `make build` — `make build` may re-extract and re-patch from scratch,
+> wiping the `obj-*` directory.
+
+### Validate patches without a full build
 
 ```sh
-git clone --recursive https://codeberg.org/librewolf/source.git librewolf-source
-cd librewolf-source
+make check-patchfail   # confirm every patch applies cleanly to the FF tarball
 ```
 
-Next, build the LibreWolf source code with the following command:
-
-```sh
-make dir
-```
-
-After that, you have to bootstrap your system to be able to build LibreWolf.
-You only have to do this one time.
-It is done by running the following command:
-
-```sh
-make bootstrap
-```
-
-Finally you can build LibreWolf and then package or run it with the following commands:
-
-```sh
-make build
-make package
-# OR
-make run
-```
-
-## Translations
-
-We use Weblate to localize all LibreWolf-specific strings.
-You can help us by translating LibreWolf into your language at
-<https://translate.codeberg.org/engage/librewolf>.
-Here is the current translation status:
-
-<a href="https://translate.codeberg.org/engage/librewolf/">
-<img src="https://translate.codeberg.org/widget/librewolf/multi-auto.svg" alt="Translation status" />
-</a>
+This is what CI runs (GitHub Actions, `.github/workflows/check-patches.yml`),
+pinned to the `./version` file. A full compile is not run in CI — it's too heavy
+for hosted runners.
 
 ## Development
 
-### How to make a patch
+Architecture, conventions, and the critical build constraints are documented in
+[`CLAUDE.md`](CLAUDE.md) — including how the synthwave theme is injected, the
+new-tab CSS rules, the settings layering, and the pref-pane rebrand.
 
-The easiest way to make patches is to go to the LibreWolf source folder:
-
-```sh
-cd librewolf-$(cat version)
-git init
-git add <path_to_file_you_changed>
-git commit -am initial-commit
-git diff > ../mypatch.patch
-```
-
-We have Gitter / Matrix rooms,
-and on the website we have links to the various issue trackers.
-
-### How to work on an existing patch
-
-The easiest way to make patches is to go to the LibreWolf source folder:
+To work on a patch, edit inside the patched source tree and diff:
 
 ```sh
-make fetch # get the firefox tarball
-./scripts/git-patchtree.sh patches/sed-patches/disable-pocket.patch
+make dir
+cd neonwolf-$(cat version)-$(cat release)
+git init && git add <file> && git commit -qm initial
+# ...make changes...
+git diff > ../patches/my-change.patch
 ```
 
-Now change the source tree the way you want,
-keeping in mind to `git add` new files.
-When done, you can create the new patch with:
+Patch application order is defined in `assets/patches.txt` and is load-bearing —
+never reorder without re-running `make check-patchfail`.
 
-```sh
-cd firefox-<version>
-git diff 4b825dc642cb6eb9a060e54bf8d69288fbee4904 HEAD > ../my-patch-name.patch
-```
+## Credits
 
-This ID is the hash value of the first commit, which is called `initial`.
-Dont forget to commit changes before doing this diff,
-or the patch will be incomplete.
+Neonwolf stands entirely on the work of others:
 
-### How to create a patch for problems in Mozilla's [Bugzilla](https://bugzilla.mozilla.org)
+- **[LibreWolf](https://librewolf.net)** — the privacy/hardening patch set, build
+  pipeline, and settings this overlay is built on.
+- **[Mozilla Firefox](https://www.mozilla.org/firefox/)** — the underlying browser.
 
-Well, first of all:
+## License
 
-* [Create an account](https://bugzilla.mozilla.org/createaccount.cgi).
-* Handy link: [Bugs Filed Today](https://bugzilla.mozilla.org/buglist.cgi?cmdtype=dorem&remaction=run&namedcmd=Bugs%20Filed%20Today&sharer_id=1&list_id=15939480).
-* The essential: [Firefox Source Tree Documentation](https://firefox-source-docs.mozilla.org/).
-
-Now that you have a patch in LibreWolf, that's not enough to upload to Mozilla.
-See, Mozilla only accepts patches against Nightly.
-So here is how to do that:
-
-If you have not done already,
-create the `mozilla-unified` folder and build Firefox with it:
-
-```sh
-hg clone https://hg.mozilla.org/mozilla-unified
-cd mozilla-unified
-hg update
-MOZBUILD_STATE_PATH=$HOME/.mozbuild ./mach --no-interactive bootstrap --application-choice=browser
-./mach build
-./mach run
-```
-
-If you skipped the previous step, you could ensure that you're up to date with:
-
-```sh
-cd mozilla-unified
-hg pull
-hg update
-```
-
-Now you can apply your patch to Nightly:
-
-```sh
-patch -p1 -i ../mypatch.patch
-```
-
-Now you let Mercurial create the patch:
-
-```sh
-hg diff > ../my-nightly-patch.patch
-```
-
-And it can be uploaded to Bugzilla.
-
-#### Now the fun starts *(excerpt from the Mozilla readme)*
-
-Time to start hacking! You should join us on [Matrix](https://chat.mozilla.org/),
-say hello in the [Introduction channel](https://chat.mozilla.org/#/room/#introduction:mozilla.org),
-and [find a bug to start working on](https://codetribute.mozilla.org/).
-See the [Firefox Contributors' Quick Reference](https://firefox-source-docs.mozilla.org/contributing/contribution_quickref.html#firefox-contributors-quick-reference)
-to learn how to test your changes,
-send patches to Mozilla,
-update your source code locally, and more.
-
-## Hey, I'm using MacOS or Windows
-
-We understand, life isn't always fair 😺.
-The same steps as above do apply,
-you will just have to walk through the beginning part of the guides for:
-
-* [MacOS](https://firefox-source-docs.mozilla.org/setup/macos_build.html): The cross-compiled Mac `.dmg` files are somewhat new. They should work, perhaps with the exception of the `make setup-wasi` step.
-* [Windows](https://firefox-source-docs.mozilla.org/setup/windows_build.html): Building on Windows is not very well tested.
-
-Help with testing these targets is always welcome.
+Like Firefox and LibreWolf, Neonwolf is distributed under the
+[Mozilla Public License 2.0](LICENSE).
