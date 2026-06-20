@@ -318,40 +318,37 @@ body {
   background-repeat: no-repeat !important;
   background-size: cover !important;
 }
-/* Neonwolf logo above mountains */
-body::before {
-  content: "";
-  position: fixed;
-  top: 38%;
-  left: 50%;
-  width: 420px;
-  height: 420px;
-  transform: translate(-50%, 0);
-  background: url("@LOGO_URI@") no-repeat center;
-  background-size: contain;
-  pointer-events: none;
-  z-index: 3;
+/* Neonwolf hero logo. Rather than float a fixed-size logo at a viewport
+   percentage (which drifted into the search bar on short windows and didn't
+   scale), reuse Firefox's in-flow logo slot — it sits directly above the
+   search box inside .search-wrapper, so the logo keeps a constant gap above
+   the search bar at every window size and can never overlap it. Size scales
+   with the viewport via vmin; the wordmark stays hidden. */
+.logo-and-wordmark .wordmark {
+  display: none !important;
 }
-/* Mountains + grid overlay */
+.logo-and-wordmark .logo {
+  display: inline-block !important;
+  width: clamp(140px, 34vmin, 360px) !important;
+  height: clamp(140px, 34vmin, 360px) !important;
+  background: url("@LOGO_URI@") no-repeat center !important;
+  background-size: contain !important;
+}
+/* Synthwave mountains pinned to the bottom. Height follows the art's
+   1920x480 ratio so the base is never cropped — the old height:35% + cover
+   cut off the bottom on tall/fullscreen windows. Capped at 50vh; when the cap
+   engages, cover anchors to the bottom so only the peaks clip, not the base. */
 body::after {
   content: "";
   position: fixed;
-  bottom: 0;
-  left: 0;
+  inset: auto 0 0 0;
   width: 100%;
-  height: 35%;
-  background: url("chrome://browser/content/synthwave-mountains.svg") no-repeat center top;
+  aspect-ratio: 1920 / 480;
+  max-height: 50vh;
+  background: url("chrome://browser/content/synthwave-mountains.svg") no-repeat center bottom;
   background-size: cover;
   pointer-events: none;
-  z-index: 2;
-}
-/* Hide Firefox's own new-tab logo + wordmark — Neonwolf shows its synthwave
-   hero logo via body::before above. (FF152 renders these inside
-   .logo-and-wordmark; hiding the children avoids the duplicate logo while
-   leaving the container's spacing intact.) */
-.logo-and-wordmark .logo,
-.logo-and-wordmark .wordmark {
-  display: none !important;
+  z-index: 0;
 }
 /* Neon halo behind the mid-page search bar. FF152 replaced the old
    .search-handoff-button with a <content-search-handoff-ui> custom element
@@ -364,7 +361,7 @@ body::after {
 .search-wrapper .search-inner-wrapper::after {
   content: "";
   position: absolute;
-  inset: -4px;
+  inset: 0;
   border-radius: 12px;
   box-shadow:
     0 0 10px #00ffff,
