@@ -1,7 +1,7 @@
-pane-librewolf-title = LibreWolf
+pane-librewolf-title = Neonwolf
 category-librewolf =
     .tooltiptext = chanjyow about:config, gorrys yn bagas ha hedhadow yn es
-librewolf-header = Dewisyow LibreWolf
+librewolf-header = Dewisyow Neonwolf
 librewolf-warning-title = Gwarnyans!
 librewolf-warning-description = Ni dewisyn settyansow defowt rag fogella war briveter ha sawder. Mars ow chanjya an settyansow ma, redya an dheskrifansow rag konvedhes an effeythyow a'n janjyow na.
 librewolf-general-heading2 =
@@ -59,6 +59,6 @@ librewolf-goog-safe-download-warning1 = Oll an checkyow yw leel.
 librewolf-footer = Gorgevrennow dhe les
 librewolf-config-link = Oll settyansow avonsys (about:config)
 librewolf-open-profile = Ygeri restrenva profil devnydhyer
-content-blocking-section-top-level-description = Librewolf a skoodhya - ha bywhe yn defowt - Difresyans Helerghans Krevhes yn fordh Strooth. Unn a'n settyansow moy posek y'n peurell yw hemma, dre reson y a brovia rannans studh, rolyow lettys strooth ha nasyow privetter aral. Na komendyn ow chanjya dhe fordhow aral.
+content-blocking-section-top-level-description = Neonwolf a skoodhya - ha bywhe yn defowt - Difresyans Helerghans Krevhes yn fordh Strooth. Unn a'n settyansow moy posek y'n peurell yw hemma, dre reson y a brovia rannans studh, rolyow lettys strooth ha nasyow privetter aral. Na komendyn ow chanjya dhe fordhow aral.
 permissions-webgl2 =
     .label = WebGL

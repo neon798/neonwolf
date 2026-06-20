@@ -1,12 +1,12 @@
-## LibreWolf preferences
+## Neonwolf preferences
 
 # Sidebar
-pane-librewolf-title2 = LibreWolf
-  .title = LibreWolf
+pane-librewolf-title2 = Neonwolf
+  .title = Neonwolf
 category-librewolf =
     .tooltiptext = about:config changes, logically grouped and easily accessible
 # Main content
-librewolf-header = LibreWolf Preferences
+librewolf-header = Neonwolf Preferences
 librewolf-warning-title = Heads up!
 librewolf-warning-description = We carefully choose default settings to focus on privacy and security. When changing these settings, read the descriptions to understand the implications of those changes.
 # Page Layout
@@ -70,7 +70,7 @@ librewolf-open-profile = Open user profile directory
 
 ## Privacy & Security preferences
 
-content-blocking-section-top-level-description = LibreWolf supports - and it enables by default - Enhanced Tracking Protection in Strict mode. This is one of the most important settings in the browser, as it provides state partitioning, strict blocking lists and other neat privacy features. We do not recommend changing to other modes.
+content-blocking-section-top-level-description = Neonwolf supports - and it enables by default - Enhanced Tracking Protection in Strict mode. This is one of the most important settings in the browser, as it provides state partitioning, strict blocking lists and other neat privacy features. We do not recommend changing to other modes.
 
 ## Permissions
 
@@ -84,4 +84,4 @@ permissions-webgl2 =
 
 ## General
 librewolf-rfp-warning =
-    .message = This feature is disabled because ResistFingerprinting is enabled. This means LibreWolf will force web content to display in a light theme.
+    .message = This feature is disabled because ResistFingerprinting is enabled. This means Neonwolf will force web content to display in a light theme.

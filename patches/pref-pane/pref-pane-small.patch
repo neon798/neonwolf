@@ -52,7 +52,7 @@ index 9760a4a..4ea4230 100644
 -        data-l10n-id="pane-ai-controls-title2">
 +      <html:moz-page-nav-button id="category-librewolf"
 +        view="paneLibrewolf"
-+        iconsrc="chrome://browser/skin/preferences/category-librewolf.svg"
++        iconsrc="chrome://browser/skin/preferences/category-neonwolf.svg"
 +        data-l10n-id="pane-librewolf-title2">
        </html:moz-page-nav-button>
        <html:moz-page-nav-button id="category-permissions-data"
@@ -73,7 +73,7 @@ index c2bebf7e96..62ab632cec 100644
    skin/classic/browser/preferences/android-menu.svg            (../shared/preferences/android-menu.svg)
    skin/classic/browser/preferences/category-general.svg        (../shared/preferences/category-general.svg)
    skin/classic/browser/preferences/category-privacy-security.svg    (../shared/preferences/category-privacy-security.svg)
-+  skin/classic/browser/preferences/category-librewolf.svg    (../shared/preferences/category-librewolf.svg)
++  skin/classic/browser/preferences/category-neonwolf.svg    (../shared/preferences/category-neonwolf.svg)
    skin/classic/browser/preferences/category-search.svg         (../shared/preferences/category-search.svg)
    skin/classic/browser/preferences/category-sync.svg           (../shared/preferences/category-sync.svg)
    skin/classic/browser/preferences/containers.css              (../shared/preferences/containers.css)

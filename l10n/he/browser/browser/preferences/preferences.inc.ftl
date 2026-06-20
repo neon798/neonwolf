@@ -1,7 +1,7 @@
-pane-librewolf-title = LibreWolf
+pane-librewolf-title = Neonwolf
 category-librewolf =
     .tooltiptext = שינויים ל-about:config, מקובצים לוגית ונגישים בקלות
-librewolf-header = העדפות LibreWolf
+librewolf-header = העדפות Neonwolf
 librewolf-warning-title = שימו לב!
 librewolf-warning-description = הגדרות ברירת המחדל נבחרו בקפידה בדגש על פרטיות ואבטחה. לפני שינוי של ההגדרות האלו, יש לקרוא את התיאור שלהן כדי להבין את ההשלכות.
 librewolf-general-heading = התנהגות הדפדפן

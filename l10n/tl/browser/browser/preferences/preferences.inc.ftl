@@ -1,7 +1,7 @@
-pane-librewolf-title = LibreWolf
+pane-librewolf-title = Neonwolf
 category-librewolf =
     .tooltiptext = mga pagbabago sa about:config, lohikal na pinagsama at madaling i-access
-librewolf-header = Mga kagustuhan sa LibreWolf
+librewolf-header = Mga kagustuhan sa Neonwolf
 librewolf-warning-title = Sandali lang!
 librewolf-warning-description = Maingat naming pinipili ang mga default na setting para tumuon sa privacy at seguridad. Kapag binabago ang mga setting na ito, basahin ang mga paglalarawan upang maunawaan ang mga implikasyon ng mga pagbabagong iyon.
 librewolf-general-heading = Pag-uugali ng Browser
@@ -58,6 +58,6 @@ librewolf-goog-safe-download-warning1 = Nangyayari nang lokal ang mga pagsusuri.
 librewolf-footer = Mga kapaki-pakinabang na link
 librewolf-config-link = Lahat ng mga advanced na setting (about:config)
 librewolf-open-profile = Buksan ang direktoryo ng user profile
-content-blocking-section-top-level-description = Sinusuportahan ng LibreWolf - at palaging pinapagana bilang default - ang Pinahusay na Proteksyon sa Pag-track sa Strict mode. Ito ang isa sa mga pinaka-importanteng setting sa browser, dahil ito ay nagbibigay ng state partitioning, mga striktong listahan ng pag-block at iba pang mga maayos na privacy feature. Hindi naming inirerekomenda ang pagpalit sa iba pang mode.
+content-blocking-section-top-level-description = Sinusuportahan ng Neonwolf - at palaging pinapagana bilang default - ang Pinahusay na Proteksyon sa Pag-track sa Strict mode. Ito ang isa sa mga pinaka-importanteng setting sa browser, dahil ito ay nagbibigay ng state partitioning, mga striktong listahan ng pag-block at iba pang mga maayos na privacy feature. Hindi naming inirerekomenda ang pagpalit sa iba pang mode.
 permissions-eme2 =
     .label = DRM-controlled content

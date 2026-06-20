@@ -1,4 +1,4 @@
-pane-librewolf-title = LibreWolf
+pane-librewolf-title = Neonwolf
 category-librewolf =
     .tooltiptext = about:config canvis, lògicament agrupat i fàcilment accessible
 librewolf-header = Preferències
@@ -58,7 +58,7 @@ librewolf-goog-safe-download-warning1 = Totes les comprovacions es fan localment
 librewolf-footer = Enllaços útils
 librewolf-config-link = Tots els paràmetres avançats (about:config)
 librewolf-open-profile = Obre el directori del perfil d'usuari
-content-blocking-section-top-level-description = LibreWolf admet (i habilita per defecte) la protecció de seguiment millorada en mode estricte. Aquesta és una de les configuracions més importants del navegador, ja que proporciona particions d'estat, llistes de bloqueig estrictes i altres funcions de privadesa útils. No recomanem canviar a altres modes.
+content-blocking-section-top-level-description = Neonwolf admet (i habilita per defecte) la protecció de seguiment millorada en mode estricte. Aquesta és una de les configuracions més importants del navegador, ja que proporciona particions d'estat, llistes de bloqueig estrictes i altres funcions de privadesa útils. No recomanem canviar a altres modes.
 librewolf-webgl-prompt-checkbox =
     .label = Amaga la finestra emergent lloc per lloc de WebGL
 librewolf-webgl-prompt-description = Això amaga la finestra emergent que apareix quan un lloc intenta crear un context WebGL. Encara podeu mostrar manualment la sol·licitud fent clic a la icona de la barra de cerca.

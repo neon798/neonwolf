@@ -232,7 +232,7 @@ def neonwolf_patches():
     # 1) patch it in
     patch('../patches/pref-pane/pref-pane-small.patch')
     # 2) new files
-    exec('cp ../patches/pref-pane/category-librewolf.svg browser/themes/shared/preferences/category-librewolf.svg')
+    exec('cp ../patches/pref-pane/category-neonwolf.svg browser/themes/shared/preferences/category-neonwolf.svg')
     exec('cp ../patches/pref-pane/librewolf.css browser/themes/shared/preferences/librewolf.css')
     exec('cp ../patches/pref-pane/librewolf.inc.xhtml browser/components/preferences/librewolf.inc.xhtml')
     exec('cp ../patches/pref-pane/librewolf.js browser/components/preferences/librewolf.js')

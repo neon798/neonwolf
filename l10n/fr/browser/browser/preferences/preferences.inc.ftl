@@ -1,11 +1,11 @@
-## Préférences de LibreWolf
+## Préférences de Neonwolf
 
 # Barre latérale
-pane-librewolf-title = LibreWolf
+pane-librewolf-title = Neonwolf
 category-librewolf =
     .tooltiptext = changements dans about:config, regroupés logiquement et facilement accessibles
 # Contenu principal
-librewolf-header = Préférences de LibreWolf
+librewolf-header = Préférences de Neonwolf
 librewolf-warning-title = Attention !
 librewolf-warning-description = Nous choisissons avec soin les paramètres par défaut pour privilégier la confidentialité et la sécurité. Lorsque vous modifiez ces paramètres, lisez les descriptions pour comprendre les implications de ces changements.
 # Mise en page
@@ -65,7 +65,7 @@ librewolf-goog-safe-download-warning1 = Toutes les vérifications se font locale
 librewolf-footer = Liens utiles
 librewolf-config-link = Tous les paramètres avancés (about:config)
 librewolf-open-profile = Ouvrir le répertoire du profil utilisateur
-content-blocking-section-top-level-description = LibreWolf prend en charge, et active par défaut, la protection renforcée contre le pistage en mode strict. Ce paramètre est essentiel, car il permet le partitionnement de l'état du navigateur, fournit des listes de blocage strictes et d'autres fonctionnalités de confidentialité. Nous déconseillons de passer à un autre mode.
+content-blocking-section-top-level-description = Neonwolf prend en charge, et active par défaut, la protection renforcée contre le pistage en mode strict. Ce paramètre est essentiel, car il permet le partitionnement de l'état du navigateur, fournit des listes de blocage strictes et d'autres fonctionnalités de confidentialité. Nous déconseillons de passer à un autre mode.
 librewolf-extension-update-checkbox2 =
     .label = Mettre à jour les extensions automatiquement
     .description = Maintenir les extensions à jour sans action de votre part. Une bonne décision pour votre sécurité.
@@ -109,6 +109,6 @@ librewolf-letterboxing-checkbox2 =
     .label = Activer le letterboxing
     .description = Le letterboxing ajoute des marges autour des fenêtres, pour retourner un ensemble limité de résolutions arrondies.
 librewolf-rfp-warning =
-    .message = Cette fonctionnalité est désactivée car ResistFingerprinting est activé. Celà veut dire que LibreWolf forcera les contenus web à s'afficher dans un thème clair.
+    .message = Cette fonctionnalité est désactivée car ResistFingerprinting est activé. Celà veut dire que Neonwolf forcera les contenus web à s'afficher dans un thème clair.
 permissions-eme2 =
     .label = Contenu protégé par des DRM
