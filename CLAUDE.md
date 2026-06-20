@@ -123,7 +123,7 @@ All logo derivatives flow from **one source**:
 | Asset | Method |
 |-------|--------|
 | Branding PNGs (16–256px) | `scripts/generate-icons.sh` (rsvg-convert) |
-| New tab hero logo | Base64-inlined into `activity-stream.css` at patch time (`chrome://` URIs don't resolve from content pages) |
+| New tab hero logo | Base64-inlined into `activity-stream.css` at patch time, applied as the background of Firefox's in-flow `.logo-and-wordmark .logo` slot (`chrome://` URIs don't resolve from content pages) |
 | All other SVG copies | Stripped copies of the source SVG |
 
 PNGs in `themes/browser/branding/neonwolf/` are always generated — never edit them directly.
@@ -136,6 +136,25 @@ to `about:newtab`/`about:home`. New-tab theming must be appended to
 `browser/extensions/newtab/css/activity-stream.css` in `neonwolf-patches.py`.
 **Note:** this path moved in FF152 — it was `browser/components/newtab/...` on
 the old 129 base. This is the most important architectural fact.
+
+### New-tab layout must scale, not use fixed viewport positions
+The synthwave new-tab CSS (the `NEWTAB_CSS` block in `neonwolf-patches.py`) is
+built to scale across window sizes — earlier versions mixed fixed `px` sizes
+with `top: 38%` / `height: 35%` viewport positioning and broke at sizes other
+than the one they were tuned for. The rules now in force:
+
+- **Hero logo** rides Firefox's in-flow `.logo-and-wordmark .logo` slot (which
+  sits directly above the search box inside `.search-wrapper`), *not* a
+  `position: fixed` element. This guarantees a constant gap above the search
+  bar at every size so it can never overlap it. Size scales via
+  `clamp(140px, 34vmin, 360px)`; the `.wordmark` is hidden.
+  This assumes the **search-only** new-tab layout (Neonwolf's privacy default):
+  with Pocket/stories enabled, FF152 absolutely-positions `.logo-and-wordmark`
+  into a corner and the hero logo would be misplaced.
+- **Mountains** (`body::after`) are pinned to the bottom with height driven by
+  the art's `aspect-ratio: 1920 / 480` (capped `max-height: 50vh`), so the base
+  is never cropped. Do **not** go back to `height: %` + `background-size: cover`
+  anchored top — that cut off the bottom on tall windows.
 
 ### `omni.ja` must be `ZIP_STORED`
 Firefox `omni.ja` files must use zero-compression ZIP. `ZIP_DEFLATED` causes
@@ -174,21 +193,28 @@ locale detection. On Wayland sessions also set `MOZ_ENABLE_WAYLAND=1`.
 
 - **CSS custom properties**: `--neonwolf-*` prefix
 - **Color palette**: Backgrounds `#0d001a` → `#2d004f` (deep purple), accents `#ff00ff` (pink) and `#00ffff` (cyan), text `#e0e0ff`/`#b0b0ff`, dim text `#604080`/`#8866aa`
-- **Pref pane**: currently the upstream LibreWolf pane (`paneLibrewolf`, `category-librewolf`). A Neonwolf-branded pane (`paneNeonwolf`, `neonwolf.shields.*`) is a planned follow-up, not yet in place on the 152 base.
+- **Pref pane**: rebranded for display only — the sidebar title, header, and in-pane strings read "Neonwolf" (across all 33 locales) and the nav icon is `category-neonwolf.svg`. Internal identifiers are **intentionally left as upstream** (`paneLibrewolf`, the `librewolf-*` Fluent keys, `librewolf.*` prefs, `librewolf.cfg`) to preserve translation-key matches and keep upstream merges clean — a deep rename was evaluated and rejected for that reason.
 
 ## Search bar glow pattern
 
 The neon glow on the new tab search bar uses a pseudo-element behind the element
-— not `filter: drop-shadow()` (bleeds) or direct `box-shadow` (glows internally):
+— not `filter: drop-shadow()` (bleeds) or direct `box-shadow` (glows internally).
+**FF152 change:** the old `.search-handoff-button` element is gone — the search
+box is now `<content-search-handoff-ui>` inside `.search-inner-wrapper`, so the
+glow anchors to that wrapper (which already sets `position: relative`):
 
 ```css
-.search-handoff-button { position: relative; z-index: 1; overflow: visible; }
-.search-handoff-button::after {
-  content: ""; position: absolute; inset: -4px;
-  box-shadow: 0 0 8px #00ffff, 0 0 16px rgba(0,255,255,0.9), ...;
+.search-wrapper .search-inner-wrapper { position: relative; z-index: 1; }
+.search-wrapper .search-inner-wrapper::after {
+  content: ""; position: absolute; inset: 0; border-radius: 12px;
+  box-shadow: 0 0 10px #00ffff, 0 0 20px rgba(0,255,255,1), ...;
   z-index: -1; pointer-events: none;
 }
 ```
+
+Use `inset: 0` (glow box matches the bar), not a negative inset — a negative
+inset leaves a transparent ring between the border and the neon that shows the
+background gradient through at smaller window sizes.
 
 ## No test suite
 
