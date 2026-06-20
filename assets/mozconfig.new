@@ -16,8 +16,8 @@ ac_add_options --enable-rust-simd
 ac_add_options --enable-replace-malloc
 ac_add_options --enable-jemalloc
 
-ac_add_options --with-app-name=librewolf
-ac_add_options --with-branding=browser/branding/librewolf
+ac_add_options --with-app-name=neonwolf
+ac_add_options --with-branding=browser/branding/neonwolf
 
 ac_add_options --with-l10n-base=$PWD/lw/l10n
 

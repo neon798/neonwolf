@@ -33,8 +33,8 @@ ext:=.tar.gz
 ff_source_dir:=firefox-$(version)
 ff_source_tarball:=firefox-$(version).source.tar.xz
 
-lw_source_dir:=librewolf-$(version)-$(release)
-lw_source_tarball:=librewolf-$(version)-$(release).source$(ext)
+lw_source_dir:=neonwolf-$(version)-$(release)
+lw_source_tarball:=neonwolf-$(version)-$(release).source$(ext)
 
 help :
 
@@ -144,16 +144,16 @@ $(ff_source_tarball) :
 	wget -qO $(ff_source_tarball) "$(ff_source_url)"
 	gpg --verify $(ff_source_tarball).asc $(ff_source_tarball)
 
-$(lw_source_dir) : $(ff_source_tarball) ./version ./release scripts/librewolf-patches.py assets/mozconfig assets/patches.txt
+$(lw_source_dir) : $(ff_source_tarball) ./version ./release scripts/neonwolf-patches.py assets/mozconfig assets/patches.txt
 	rm -rf $(ff_source_dir) $(lw_source_dir)
 	tar xf $(ff_source_tarball)
 	mv $(ff_source_dir) $(lw_source_dir)
-	python3 scripts/librewolf-patches.py $(version) $(release)
+	python3 scripts/neonwolf-patches.py $(version) $(release)
 
 $(lw_source_tarball) : $(lw_source_dir)
 	rm -f $(lw_source_tarball)
-	tar cf librewolf-$(version)-$(release).source.tar $(lw_source_dir)
-	pigz -6 librewolf-$(version)-$(release).source.tar
+	tar cf neonwolf-$(version)-$(release).source.tar $(lw_source_dir)
+	pigz -6 neonwolf-$(version)-$(release).source.tar
 	touch $(lw_source_dir)
 	sha256sum $(lw_source_tarball) > $(lw_source_tarball).sha256sum
 	cat $(lw_source_tarball).sha256sum
@@ -183,7 +183,7 @@ build : $(lw_source_dir)
 
 package :
 	(cd $(lw_source_dir) && cat browser/locales/shipped-locales | xargs ./mach package-multi-locale --locales)
-	cp -v $(lw_source_dir)/obj-*/dist/librewolf-$(version)-$(release).en-US.*.tar.xz .
+	cp -v $(lw_source_dir)/obj-*/dist/neonwolf-$(version)-$(release).en-US.*.tar.xz .
 
 run :
 	(cd $(lw_source_dir) && ./mach run)
