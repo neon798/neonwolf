@@ -1,0 +1,94 @@
+/* Neonwolf Shields UI - Brave-style shield panel */
+
+#neonwolf-shields-button {
+  list-style-image: url(chrome://browser/skin/neonwolf-shields.svg) !important;
+  fill: var(--neonwolf-text-secondary) !important;
+}
+
+#neonwolf-shields-button[shields="down"] {
+  fill: #ff4444 !important;
+}
+
+#neonwolf-shields-button[shields="up"] {
+  fill: var(--neonwolf-accent-cyan) !important;
+  filter: drop-shadow(0 0 3px var(--neonwolf-accent-cyan)) !important;
+}
+
+#neonwolf-shields-panel {
+  --panel-background: var(--neonwolf-bg-dark) !important;
+  --panel-border-color: var(--neonwolf-border-pink) !important;
+  --panel-shadow: var(--neonwolf-glow-pink) !important;
+}
+
+#neonwolf-shields-panel .panel-arrowbox {
+  background: var(--neonwolf-bg-dark) !important;
+  border-color: var(--neonwolf-border-pink) !important;
+}
+
+.shields-header {
+  background: linear-gradient(90deg, var(--neonwolf-bg-mid), var(--neonwolf-bg-dark)) !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+  padding: 12px !important;
+  color: var(--neonwolf-accent-pink) !important;
+  text-shadow: 0 0 5px var(--neonwolf-accent-pink) !important;
+}
+
+.shields-header-label {
+  font-weight: bold !important;
+  font-size: 14px !important;
+}
+
+.shields-toggle-row {
+  padding: 8px 12px !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+  color: var(--neonwolf-text-primary) !important;
+}
+
+.shields-toggle-row:hover {
+  background: rgba(255, 0, 255, 0.05) !important;
+}
+
+.shields-toggle-label {
+  color: var(--neonwolf-text-secondary) !important;
+}
+
+.shields-count-badge {
+  background: var(--neonwolf-accent-pink) !important;
+  color: #000 !important;
+  border-radius: 10px !important;
+  padding: 2px 8px !important;
+  font-weight: bold !important;
+  font-size: 11px !important;
+  box-shadow: 0 0 5px var(--neonwolf-accent-pink) !important;
+}
+
+.shields-stat {
+  color: var(--neonwolf-accent-cyan) !important;
+  font-size: 12px !important;
+}
+
+.shields-stat-label {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 10px !important;
+}
+
+.shields-footer {
+  background: var(--neonwolf-bg-darkest) !important;
+  border-top: 1px solid var(--neonwolf-border-pink) !important;
+  padding: 8px 12px !important;
+}
+
+.shields-footer-label {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 10px !important;
+}
+
+.shields-advanced-link {
+  color: var(--neonwolf-accent-cyan) !important;
+  cursor: pointer !important;
+}
+
+.shields-advanced-link:hover {
+  color: var(--neonwolf-accent-pink) !important;
+  text-decoration: underline !important;
+}

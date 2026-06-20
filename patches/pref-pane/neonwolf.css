@@ -1,0 +1,23 @@
+.neonwolf-collapse > input {
+	display: none;
+}
+.neonwolf-collapse > input ~ .neonwolf-collapsed {
+	display: none;
+	/* max-height: 0; */
+	transition: max-height 0.25s ease-in-out;
+}
+.neonwolf-collapse > input:checked ~ .neonwolf-collapsed {
+	display: block;
+	/* max-height: 20rem; */
+}
+.neonwolf-warning {
+	display: inline;
+	font-size: 0.8em;
+}
+.neonwolf-button-icon {
+	width: 16px;
+	height: 16px;
+	margin-right: 8px;
+	-moz-context-properties: fill, fill-opacity;
+	fill: currentColor;
+}

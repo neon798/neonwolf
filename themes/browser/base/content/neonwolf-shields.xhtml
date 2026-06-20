@@ -1,0 +1,47 @@
+<panel id="neonwolf-shields-panel" type="arrow" orient="vertical" role="group"
+       xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <script src="chrome://browser/content/neonwolf-shields-panel.js"/>
+
+  <vbox id="neonwolf-shields-header" class="panel-header">
+    <hbox align="center">
+      <image id="neonwolf-shields-icon" class="neonwolf-shields-icon"/>
+      <label id="neonwolf-shields-host" class="neonwolf-shields-host"/>
+    </hbox>
+    <label id="neonwolf-shields-status" class="neonwolf-shields-status"/>
+    <description id="neonwolf-shields-count-text"/>
+  </vbox>
+
+  <vbox id="neonwolf-shields-controls">
+    <checkbox id="neonwolf-shields-global"
+              label="&neonwolf.shields.enable;"
+              oncommand="NeonwolfShieldsPanel.toggleAll(this.checked);"/>
+
+    <separator/>
+
+    <checkbox id="neonwolf-shields-ads"
+              label="&neonwolf.shields.block.ads;"
+              oncommand="NeonwolfShieldsPanel.toggleShield('ads', this.checked);"/>
+
+    <checkbox id="neonwolf-shields-trackers"
+              label="&neonwolf.shields.block.trackers;"
+              oncommand="NeonwolfShieldsPanel.toggleShield('trackers', this.checked);"/>
+
+    <checkbox id="neonwolf-shields-fingerprinting"
+              label="&neonwolf.shields.block.fingerprinting;"
+              oncommand="NeonwolfShieldsPanel.toggleShield('fingerprinting', this.checked);"/>
+
+    <checkbox id="neonwolf-shields-cookies"
+              label="&neonwolf.shields.block.cookies;"
+              oncommand="NeonwolfShieldsPanel.toggleShield('cookies', this.checked);"/>
+
+    <checkbox id="neonwolf-shields-httpsUpgrade"
+              label="&neonwolf.shields.upgrade.https;"
+              oncommand="NeonwolfShieldsPanel.toggleShield('httpsUpgrade', this.checked);"/>
+  </vbox>
+
+  <vbox id="neonwolf-shields-footer">
+    <label id="neonwolf-shields-blocked-label"
+           value="&neonwolf.shields.blocked.count;"/>
+    <label id="neonwolf-shields-count"/>
+  </vbox>
+</panel>
