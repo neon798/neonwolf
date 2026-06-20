@@ -345,6 +345,36 @@ body::after {
   pointer-events: none;
   z-index: 2;
 }
+/* Hide Firefox's own new-tab logo + wordmark — Neonwolf shows its synthwave
+   hero logo via body::before above. (FF152 renders these inside
+   .logo-and-wordmark; hiding the children avoids the duplicate logo while
+   leaving the container's spacing intact.) */
+.logo-and-wordmark .logo,
+.logo-and-wordmark .wordmark {
+  display: none !important;
+}
+/* Neon halo behind the mid-page search bar. FF152 replaced the old
+   .search-handoff-button with a <content-search-handoff-ui> custom element
+   inside .search-inner-wrapper, so the glow now anchors to that wrapper
+   (which already sets position: relative). */
+.search-wrapper .search-inner-wrapper {
+  position: relative;
+  z-index: 1;
+}
+.search-wrapper .search-inner-wrapper::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 12px;
+  box-shadow:
+    0 0 10px #00ffff,
+    0 0 20px rgba(0, 255, 255, 1),
+    0 0 34px rgba(0, 255, 255, 0.75),
+    0 0 52px rgba(255, 0, 255, 0.55),
+    0 0 72px rgba(255, 0, 255, 0.3);
+  z-index: -1;
+  pointer-events: none;
+}
 '''
 
 
