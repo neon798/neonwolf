@@ -363,3 +363,74 @@ menupopup menuitem:hover {
 #downloads-indicator-progress-inner {
   background: var(--neonwolf-accent-cyan) !important;
 }
+
+
+/* === Neonwolf Shields — synthwave reskin of Firefox's trust panel ===
+   FF152 replaced the tracking-protection shield with the "trust panel"
+   (browser.urlbar.trustPanel.featureGate, on by default). We reskin the trust
+   icon + the #trustpanel-* popup, inheriting real per-site tracker counts and
+   the ETP toggle. Pure chrome CSS. NOTE: the trust icon only shows on real web
+   pages (pageproxystate=valid) — not on about:newtab / about: pages. */
+
+/* Trust icon in the address bar: neon cyan + glow. */
+#trust-icon-container {
+  border-radius: 4px;
+}
+#trust-icon-container:hover {
+  background-color: rgba(255, 0, 255, 0.15) !important;
+}
+#trust-icon {
+  -moz-context-properties: fill;
+  fill: var(--neonwolf-accent-cyan) !important;
+  filter: drop-shadow(0 0 4px rgba(0, 255, 255, 0.7));
+}
+#trust-label {
+  color: var(--neonwolf-text-secondary) !important;
+}
+
+/* Trust panel popup — synthwave background + neon-pink border. */
+#trustpanel-popup {
+  --arrowpanel-background: linear-gradient(160deg, var(--neonwolf-bg-dark) 0%, var(--neonwolf-bg-darkest) 100%) !important;
+  --arrowpanel-color: var(--neonwolf-text-primary) !important;
+  --arrowpanel-border-color: var(--neonwolf-accent-pink) !important;
+  --panel-separator-color: var(--neonwolf-border-cyan) !important;
+}
+
+/* Host + header — neon cyan glow. */
+#trustpanel-popup-host,
+#trustpanel-header-row {
+  color: var(--neonwolf-accent-cyan) !important;
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+}
+
+/* Real blocked-tracker count (blocker section) — neon pink. */
+#trustpanel-blocker-section,
+#trustpanel-blocker-section-header,
+#trustpanel-blocker-items {
+  color: var(--neonwolf-accent-pink) !important;
+}
+#trustpanel-blocker-section > label:first-child {
+  text-shadow: 0 0 6px rgba(255, 0, 255, 0.5);
+}
+
+/* Rows: neon hover. */
+#trustpanel-popup .subviewbutton:not([disabled]):hover,
+#trustpanel-blocker-items > .subviewbutton:hover {
+  background-color: rgba(255, 0, 255, 0.12) !important;
+}
+
+/* ETP on/off toggle — neon accent. */
+#trustpanel-toggle-section moz-toggle,
+#trustpanel-toggle-checkbox-container moz-toggle {
+  --toggle-background-color-pressed: var(--neonwolf-accent-pink) !important;
+  --color-accent-primary: var(--neonwolf-accent-pink) !important;
+  --color-accent-primary-hover: var(--neonwolf-accent-hotpink) !important;
+}
+
+/* Connection / site-info icons — themed cyan. */
+#trustpanel-connection-icon,
+#trustpanel-siteinfo-icon,
+#trustpanel-popup-icon {
+  -moz-context-properties: fill;
+  fill: var(--neonwolf-accent-cyan) !important;
+}
