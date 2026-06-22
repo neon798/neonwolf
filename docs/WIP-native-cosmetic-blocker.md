@@ -19,6 +19,32 @@ matching uBO via cosmetic filtering. Tracked while uBO still ships.
   sync that DELETES the dump-loaded lists (rs-blocker.patch).
 - Network-only ceiling ~55-61% on d3ward; cosmetic always off (the gap).
 
+## List distribution — DONE (wired into the build)
+The dump above is now generated and shipped automatically; blocking is on by default.
+- `scripts/gen-adblock-dump.py` turns `assets/adblock/*.txt` into the
+  `content-classifier-lists` dump (records JSON + `<id>`/`<id>.meta.json`
+  attachments) and appends the `FINAL_TARGET_FILES.defaults.settings.main`
+  packaging to `services/settings/dumps/main/moz.build`. Called from
+  `neonwolf-patches.py` (right after the search-config dump copy). Bundled set:
+  easylist, easyprivacy, peterlowe, ubo-filters, ubo-badware, ubo-privacy,
+  ubo-quickfixes, adguard-mobile.
+- `assets/neonwolf.overrides.cfg` enables it: `protection.enabled = true`,
+  `protection.list_names = <the 8 names>`, and **appends** (does not clobber)
+  `main/content-classifier-lists` to `allowedCollectionsFromDump` via `getPref`.
+- **rs-blocker.patch fix (required):** the attachment `download()` gate was
+  keyed on `isCollectionAllowed` (the *network* allow-list), so dump-only
+  collections could load their records but not their attachments. The gate now
+  also accepts `isCollectionAllowedFromDump`; with `fallbackToDump` the bundled
+  attachment is served with no network request (the *sync* gate stays strict, so
+  the network blocklist is unchanged). The sync-delete hazard is why we still
+  must NOT add the collection to `allowedCollections`.
+- Validated against the built dist via xpcshell (production startup path):
+  `getService` -> RS client imports all 8 lists from the dump
+  (`download ... source=dump_match`, no network) -> engines rebuilt ->
+  `getCosmeticHideSelectors` returns ~500 selectors/site for advfn.com,
+  thetvdb.com, seafoodsource.com, theguardian.com. Still **not** eyeballed on
+  d3ward in a real GUI / full rebuild.
+
 ## Cosmetic filtering progress (Phase 1 foundation — DONE, in-tree)
 Engine exposes cosmetic via `Engine::url_cosmetic_resources(url).hide_selectors`.
 
@@ -56,14 +82,11 @@ nsresult GetCosmeticHideSelectors(const nsACString& aUrl, nsTArray<nsCString>& a
 5. [x] Built (full `./mach build`, exit 0). Validation: the build ships `--disable-tests`, so the in-tree mochitest (`test/browser/browser_content_classifier_cosmetic.js`, also captured in the patch) can only run in a tests-enabled/CI build. Validated the native chain directly via xpcshell against the dist build: `setFilterListData("example.net##.neonwolf-test-ad")` + `applyFilterLists()` -> `getCosmeticHideSelectors("https://example.net/...")` returns `[".neonwolf-test-ad"]`, and an off-domain URL returns `[]`. **Not yet validated on d3ward** — that needs real lists loaded (see below), which is not yet wired.
 6. [x] Captured as `patches/native-cosmetic-filtering.patch` (includes the Phase 1 foundation FFI + wrapper above), wired into `assets/patches.txt` after `msix.patch`.
 
-### Still required to actually block on real sites
-Cosmetic (and network) filtering produce nothing until filter lists are loaded by
-default. The lists (`assets/adblock/*.txt`) and the RS gate (`rs-blocker.patch`)
-exist, but the machinery that packages them as a `content-classifier-lists`
-RemoteSettings dump + sets the protection prefs
-(`...content.protection.enabled`, `...protection.list_names`,
-`librewolf.services.settings.allowedCollectionsFromDump`) is NOT in the repo yet.
-That is the prerequisite for the d3ward `cosmetic_static_ad -> true` check.
+### List distribution to make it block by default — DONE
+The lists are now packaged and enabled by default; see "List distribution" above.
+Remaining before this can be called shippable: a real GUI / full-rebuild d3ward
+pass (`cosmetic_static_ad -> true`), and Phase 2 (generic cosmetic) to close the
+gap on the many sites whose rules are generic rather than domain-specific.
 
 ## Phase 2/3
 - Phase 2: generic cosmetic via `hidden_class_id_selectors` + content MutationObserver.

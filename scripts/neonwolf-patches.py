@@ -144,6 +144,14 @@ def neonwolf_patches():
     # copy the right search-config.json file
     exec('cp -v ../assets/search-config.json services/settings/dumps/main/search-config.json')
 
+    # Neonwolf native ad/tracker blocking: bundle the adblock filter lists as a
+    # content-classifier-lists RemoteSettings dump (records + attachments +
+    # moz.build packaging) so blocking works with no extension. Loaded by the
+    # content-classifier engine; enabled via assets/neonwolf.overrides.cfg
+    # (allowed from dump only — see that file). Mirrors search-config-icons.
+    require_file('../assets/adblock/easylist.txt', 'adblock filter lists')
+    exec('python3 ../scripts/gen-adblock-dump.py ../assets/adblock .')
+
     # read lines of .txt file into 'patches'
     with open('../assets/patches.txt'.format(version), "r") as f:
         for line in f.readlines():

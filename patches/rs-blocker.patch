@@ -1,12 +1,22 @@
-diff --git a/services/settings/RemoteSettingsClient.sys.mjs b/services/settings/RemoteSettingsClient.sys.mjs
-index 418418ba4e..6458bd7230 100644
+diff -ruN a/services/settings/RemoteSettingsClient.sys.mjs b/services/settings/RemoteSettingsClient.sys.mjs
 --- a/services/settings/RemoteSettingsClient.sys.mjs
 +++ b/services/settings/RemoteSettingsClient.sys.mjs
-@@ -212,6 +212,11 @@ class AttachmentDownloader extends Downloader {
+@@ -217,6 +217,22 @@
     * @see Downloader.download
     */
    async download(record, options) {
-+    if (!lazy.Utils.isCollectionAllowed(this.bucketName, this.collectionName)) {
++    // Allow attachment reads for collections that are explicitly bundled as a
++    // dump (allowedCollectionsFromDump), not just network-allowed ones. With
++    // fallbackToDump the matching bundled attachment is served without any
++    // network request, so this does not weaken the network blocklist; the sync
++    // path below stays gated on isCollectionAllowed only.
++    if (
++      !lazy.Utils.isCollectionAllowed(this.bucketName, this.collectionName) &&
++      !lazy.Utils.isCollectionAllowedFromDump(
++        this.bucketName,
++        this.collectionName
++      )
++    ) {
 +      throw Error(
 +        `Download attempt to RS collection "${this.identifier}" was blocked.`
 +      );
@@ -14,7 +24,7 @@ index 418418ba4e..6458bd7230 100644
      await lazy.UptakeTelemetry.report(
        TELEMETRY_COMPONENT,
        lazy.UptakeTelemetry.STATUS.DOWNLOAD_START,
-@@ -653,6 +658,10 @@ export class RemoteSettingsClient extends EventEmitter {
+@@ -659,6 +675,10 @@
        return;
      }
  
@@ -25,7 +35,7 @@ index 418418ba4e..6458bd7230 100644
      // We want to know which timestamp we are expected to obtain in order to leverage
      // cache busting. We don't provide ETag because we don't want a 304.
      const { changes } = await lazy.Utils.fetchLatestChanges(
-@@ -1042,6 +1051,14 @@ export class RemoteSettingsClient extends EventEmitter {
+@@ -1048,6 +1068,14 @@
     * Import the JSON files from services/settings/dump into the local DB.
     */
    async _importJSONDump() {
@@ -40,11 +50,10 @@ index 418418ba4e..6458bd7230 100644
      lazy.console.info(`${this.identifier} try to restore dump`);
      const result = await lazy.RemoteSettingsWorker.importJSONDump(
        this.bucketName,
-diff --git a/services/settings/Utils.sys.mjs b/services/settings/Utils.sys.mjs
-index da12049e14..84e14c5848 100644
+diff -ruN a/services/settings/Utils.sys.mjs b/services/settings/Utils.sys.mjs
 --- a/services/settings/Utils.sys.mjs
 +++ b/services/settings/Utils.sys.mjs
-@@ -77,6 +77,18 @@ ChromeUtils.defineLazyGetter(lazy, "allowServerURL", () => {
+@@ -77,6 +77,18 @@
    return false;
  });
  
@@ -63,11 +72,10 @@ index da12049e14..84e14c5848 100644
  XPCOMUtils.defineLazyPreferenceGetter(
    lazy,
    "gServerURL",
-@@ -221,6 +233,75 @@ export var Utils = {
-     return false;
+@@ -222,6 +234,75 @@
    },
  
-+  /**
+   /**
 +   * Internal code to determine whether the bucket and collection are allowed to
 +   * be loaded by the remote settings client for a given list of allowed
 +   * bucket/collection combinations.
@@ -136,10 +144,11 @@ index da12049e14..84e14c5848 100644
 +    return false;
 +  },
 +
-   /**
++  /**
     * A wrapper around `ServiceRequest` that behaves like `fetch()`.
     *
-@@ -500,7 +581,9 @@ export var Utils = {
+    * Use this in order to leverage the `beConservative` flag, for
+@@ -500,7 +581,9 @@
      }
  
      return {
