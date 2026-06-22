@@ -48,13 +48,22 @@ nsresult GetCosmeticHideSelectors(const nsACString& aUrl, nsTArray<nsCString>& a
 }
 ```
 
-## Remaining Phase 1 chain
-1. ContentClassifierService: aggregate hide-selectors across mBlockEngines (dedup).
-2. nsIContentClassifierService.idl: `Array<ACString> getCosmeticHideSelectors(in AUTF8String aUrl);`
-3. components.conf: register the service with a contract id (`@mozilla.org/content-classifier-service;1`) so JS can getService it (currently none).
-4. New parent/child JSActor: child gets document URL on load -> parent queries service -> child injects `selectors{display:none!important}` via `windowUtils.loadSheetUsingURIString("data:text/css,...", AGENT_SHEET)`.
-5. Build: `./mach build binaries` (Rust/C++) + `./mach build faster` (JSActor); verify d3ward `cosmetic_static_ad` -> true.
-6. Capture all of the above as `patches/` + wire into patches.txt.
+## Phase 1 chain — DONE (captured in `patches/native-cosmetic-filtering.patch`)
+1. [x] `ContentClassifierService::GetCosmeticHideSelectors` aggregates hide-selectors across `mBlockEngines`, dedup via `nsTHashSet`. No-ops (returns empty) unless `InitPhase::InitSucceeded`.
+2. [x] `nsIContentClassifierService.idl`: `Array<ACString> getCosmeticHideSelectors(in AUTF8String aUrl);` (interface uuid bumped).
+3. [x] `components.conf`: registered `@mozilla.org/content-classifier-service;1` via a new ungated `GetServiceSingleton()` (so `getService` works even when blocking is off; the methods gate internally).
+4. [x] `CosmeticFilter` JSWindowActor pair (`toolkit/actors/CosmeticFilter{Child,Parent}.sys.mjs`, registered in `ActorManagerParent.sys.mjs`, `allFrames`, `messageManagerGroups: ["browsers"]`): child fires on `DOMDocElementInserted` for http(s), queries parent, injects `selectors{display:none!important}` via `loadSheetUsingURIString(..., AGENT_SHEET)`.
+5. [x] Built (full `./mach build`, exit 0). Validation: the build ships `--disable-tests`, so the in-tree mochitest (`test/browser/browser_content_classifier_cosmetic.js`, also captured in the patch) can only run in a tests-enabled/CI build. Validated the native chain directly via xpcshell against the dist build: `setFilterListData("example.net##.neonwolf-test-ad")` + `applyFilterLists()` -> `getCosmeticHideSelectors("https://example.net/...")` returns `[".neonwolf-test-ad"]`, and an off-domain URL returns `[]`. **Not yet validated on d3ward** — that needs real lists loaded (see below), which is not yet wired.
+6. [x] Captured as `patches/native-cosmetic-filtering.patch` (includes the Phase 1 foundation FFI + wrapper above), wired into `assets/patches.txt` after `msix.patch`.
+
+### Still required to actually block on real sites
+Cosmetic (and network) filtering produce nothing until filter lists are loaded by
+default. The lists (`assets/adblock/*.txt`) and the RS gate (`rs-blocker.patch`)
+exist, but the machinery that packages them as a `content-classifier-lists`
+RemoteSettings dump + sets the protection prefs
+(`...content.protection.enabled`, `...protection.list_names`,
+`librewolf.services.settings.allowedCollectionsFromDump`) is NOT in the repo yet.
+That is the prerequisite for the d3ward `cosmetic_static_ad -> true` check.
 
 ## Phase 2/3
 - Phase 2: generic cosmetic via `hidden_class_id_selectors` + content MutationObserver.

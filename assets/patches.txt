@@ -22,6 +22,7 @@ patches/moz-configure.patch
 patches/mozilla_dirs.patch
 patches/moz-official.patch
 patches/msix.patch
+patches/native-cosmetic-filtering.patch
 patches/newtab-fix.patch
 patches/profile-directory.patch
 patches/remove-language-packs.patch
