@@ -242,6 +242,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The runner's default pagefile is too small for Firefox's heavy unified
+      # C++ TUs and the giant gkrust compile (16 GB RAM alone OOMs: "paging file
+      # is too small", "rustc-LLVM out of memory"). Give it a large pagefile.
+      - name: Enlarge pagefile
+        uses: al-cheb/configure-pagefile-action@v1.4
+        with:
+          minimum-size: 16GB
+          maximum-size: 24GB
+          disk-root: "C:"
+
       - uses: actions/download-artifact@v4
         with:
           name: neonwolf-source
