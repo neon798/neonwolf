@@ -253,14 +253,8 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile MozillaBuildSetup.exe
           Start-Process -Wait -FilePath .\MozillaBuildSetup.exe -ArgumentList "/S"
 
-      # Windows MAX_PATH limits drop the deeply-nested lw/l10n locale tree during
-      # extraction, so configure's `--with-l10n-base` existence check fails. We
-      # build en-US only, which doesn't use the l10n base — just ensure the dir
-      # exists so configure is satisfied.
       - name: Unpack source tree
-        run: |
-          tar xf neonwolf-*.source.tar.gz
-          mkdir -p "neonwolf-$(cat version)-$(cat release)/lw/l10n"
+        run: tar xf neonwolf-*.source.tar.gz
 
       # Run mach inside MozillaBuild's own bash (login shell sets up the build
       # env). `start-shell.bat -c` is a no-op — invoke the msys2 bash directly.
@@ -271,11 +265,17 @@ jobs:
       # already ships VS2022. cmd keeps the whole bash arg as one token
       # (double-quoted); inside we avoid double quotes and translate the workspace
       # path with cygpath. `&&` and `()` are protected by the surrounding quotes.
+      #
+      # `mkdir -p lw/l10n` runs *here*, after the cd, in the same shell whose $PWD
+      # configure uses for `--with-l10n-base=$PWD/lw/l10n`. (Windows MAX_PATH drops
+      # the deep l10n tree on extraction; en-US doesn't use its content, configure
+      # only needs the path to exist. Doing it in the unpack step's separate
+      # git-bash created it in the wrong place.)
       - name: Build + package (inside MozillaBuild)
         shell: cmd
         run: |
           set MOZILLABUILD=C:\mozilla-build\
-          C:\mozilla-build\msys2\usr\bin\bash -lc "cd $(cygpath -u $GITHUB_WORKSPACE) && cd neonwolf-$(cat version)-$(cat release) && export MOZBUILD_STATE_PATH=/c/mozilla-build/state && ./mach build && ./mach package && ./mach repackage installer"
+          C:\mozilla-build\msys2\usr\bin\bash -lc "cd $(cygpath -u $GITHUB_WORKSPACE) && cd neonwolf-$(cat version)-$(cat release) && mkdir -p lw/l10n && export MOZBUILD_STATE_PATH=/c/mozilla-build/state && ./mach build && ./mach package && ./mach repackage installer"
 
       - name: Collect artifacts
         run: |
