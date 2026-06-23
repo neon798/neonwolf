@@ -117,7 +117,19 @@ jobs:
           tool-cache: true
           large-packages: true
           docker-images: true
-          swap-storage: true
+          # Keep the runner's swap — a parallel Firefox/Rust build on a 16 GB
+          # runner gets OOM-killed (exit 143) without a memory cushion.
+          swap-storage: false
+
+      # Extra swap headroom on the large ephemeral disk so peak memory during
+      # Rust codegen / the libxul link can't trigger the OOM killer.
+      - name: Add swap headroom
+        run: |
+          sudo fallocate -l 12G /mnt/swapfile-extra
+          sudo chmod 600 /mnt/swapfile-extra
+          sudo mkswap /mnt/swapfile-extra
+          sudo swapon /mnt/swapfile-extra
+          free -h
 
       - uses: actions/download-artifact@v4
         with:
@@ -264,7 +276,9 @@ jobs:
   # ---------------------------------------------------------------------------
   release:
     needs: [source, linux, macos, windows]
-    if: ${{ always() && !cancelled() && needs.source.result == 'success' }}
+    # Only assemble a release if at least one platform actually produced a build,
+    # so a failed build can't leave an empty draft behind.
+    if: ${{ always() && !cancelled() && (needs.linux.result == 'success' || needs.macos.result == 'success' || needs.windows.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
