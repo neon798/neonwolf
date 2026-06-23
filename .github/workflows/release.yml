@@ -179,7 +179,9 @@ jobs:
   macos:
     needs: source
     if: ${{ inputs.build_macos }}
-    runs-on: macos-14
+    # macos-15 carries newer Xcode; Firefox 152 requires the macOS 26.4+ SDK
+    # (macos-14's Xcode 15.4 only ships SDK 14.5, which configure rejects).
+    runs-on: macos-15
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
@@ -190,6 +192,17 @@ jobs:
 
       - name: Unpack source tree
         run: tar xf neonwolf-*.source.tar.gz
+
+      # Select the newest installed Xcode and report its SDK version up front, so
+      # if it's still below the 26.4 floor we learn the ceiling without a 2nd run.
+      - name: Select newest Xcode + report SDK
+        run: |
+          set -euo pipefail
+          ls -d /Applications/Xcode*.app
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          xcodebuild -version
+          echo "SDK version: $(xcrun --show-sdk-version)"
+          echo "SDK path:    $(xcrun --show-sdk-path)"
 
       - name: Install build deps
         run: brew install yasm
@@ -245,14 +258,18 @@ jobs:
 
       # Run mach inside MozillaBuild's own bash (login shell sets up the build
       # env). `start-shell.bat -c` is a no-op — invoke the msys2 bash directly.
-      # No `./mach bootstrap`: `--enable-bootstrap` (in the mozconfig) fetches the
-      # public toolchains during the build, and the runner already ships VS2022.
-      # cmd keeps the whole bash arg as one token (double-quoted); inside we avoid
-      # double quotes and translate the workspace path with cygpath. `&&` and `()`
-      # are protected by the surrounding quotes and passed through to bash.
+      # MOZILLABUILD must be set BEFORE the login shell runs, or its profile won't
+      # add MozillaBuild's python3 to PATH (mach's `#!/usr/bin/env python3` then
+      # fails with exit 127). No `./mach bootstrap`: `--enable-bootstrap` (in the
+      # mozconfig) fetches the public toolchains during the build, and the runner
+      # already ships VS2022. cmd keeps the whole bash arg as one token
+      # (double-quoted); inside we avoid double quotes and translate the workspace
+      # path with cygpath. `&&` and `()` are protected by the surrounding quotes.
       - name: Build + package (inside MozillaBuild)
         shell: cmd
-        run: C:\mozilla-build\msys2\usr\bin\bash -lc "cd $(cygpath -u $GITHUB_WORKSPACE) && cd neonwolf-$(cat version)-$(cat release) && export MOZBUILD_STATE_PATH=/c/mozilla-build/state && ./mach build && ./mach package && ./mach repackage installer"
+        run: |
+          set MOZILLABUILD=C:\mozilla-build\
+          C:\mozilla-build\msys2\usr\bin\bash -lc "cd $(cygpath -u $GITHUB_WORKSPACE) && cd neonwolf-$(cat version)-$(cat release) && export MOZBUILD_STATE_PATH=/c/mozilla-build/state && ./mach build && ./mach package && ./mach repackage installer"
 
       - name: Collect artifacts
         run: |
