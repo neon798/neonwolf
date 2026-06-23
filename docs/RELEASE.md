@@ -27,6 +27,16 @@ enable macOS/Windows.
 
 Pushing a `v*` tag also triggers a full (all-platform) draft build.
 
+## macOS is currently blocked on hosted runners
+
+Firefox 152 requires the **macOS 26.4+ SDK**, but the newest Xcode on any
+GitHub-hosted runner (`macos-15`) is **26.3, which ships SDK 26.2** — one
+revision short, so configure refuses to build. There is no workflow fix for
+this; the job is left in place but will fail until either GitHub ships Xcode
+26.4+ in their images, or the build runs on a **self-hosted Mac** with Xcode
+26.4. Until then, leave `build_macos` off. (Lowering the SDK floor in-tree is
+possible but risky — FF152 may use 26.4 SDK APIs, so it could build broken.)
+
 ## Caveats / first-run reality
 
 - All builds are **unsigned** — testers get Gatekeeper (macOS) / SmartScreen

@@ -253,8 +253,14 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile MozillaBuildSetup.exe
           Start-Process -Wait -FilePath .\MozillaBuildSetup.exe -ArgumentList "/S"
 
+      # Windows MAX_PATH limits drop the deeply-nested lw/l10n locale tree during
+      # extraction, so configure's `--with-l10n-base` existence check fails. We
+      # build en-US only, which doesn't use the l10n base — just ensure the dir
+      # exists so configure is satisfied.
       - name: Unpack source tree
-        run: tar xf neonwolf-*.source.tar.gz
+        run: |
+          tar xf neonwolf-*.source.tar.gz
+          mkdir -p "neonwolf-$(cat version)-$(cat release)/lw/l10n"
 
       # Run mach inside MozillaBuild's own bash (login shell sets up the build
       # env). `start-shell.bat -c` is a no-op — invoke the msys2 bash directly.
