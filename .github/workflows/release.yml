@@ -191,24 +191,21 @@ jobs:
       - name: Unpack source tree
         run: tar xf neonwolf-*.source.tar.gz
 
-      - name: Bootstrap build environment
+      - name: Install build deps
+        run: brew install yasm
+
+      # We deliberately do NOT run `./mach bootstrap`: its sccache dist-toolchain
+      # fetch (ensure_sccache_packages) hits a 403 on Mozilla-restricted artifacts
+      # even on a native runner. Instead we point at the runner's own Xcode SDK and
+      # let `--enable-bootstrap` (already in the mozconfig) fetch the *public*
+      # clang/cbindgen/nasm/node toolchains during the build itself.
+      - name: Build + package (.dmg)
         run: |
           set -euo pipefail
           TREE="neonwolf-$(cat version)-$(cat release)"
           export MOZBUILD_STATE_PATH="$HOME/.mozbuild"
-          (cd "$TREE" && ./mach --no-interactive bootstrap --application-choice=browser)
-
-      - name: Build
-        run: |
-          set -euo pipefail
-          TREE="neonwolf-$(cat version)-$(cat release)"
-          (cd "$TREE" && ./mach build)
-
-      - name: Package (.dmg)
-        run: |
-          set -euo pipefail
-          TREE="neonwolf-$(cat version)-$(cat release)"
-          (cd "$TREE" && ./mach package)
+          echo "ac_add_options --with-macos-sdk=$(xcrun --show-sdk-path)" >> "$TREE/mozconfig"
+          (cd "$TREE" && ./mach build && ./mach package)
           dmg="$(ls "$TREE"/obj-*/dist/neonwolf-*.dmg | head -n1)"
           cp -v "$dmg" "Neonwolf-$(cat version)-$(cat release).macos-aarch64.dmg"
 
@@ -246,15 +243,16 @@ jobs:
       - name: Unpack source tree
         run: tar xf neonwolf-*.source.tar.gz
 
-      # MozillaBuild ships its own bash/python; run mach inside it. Keep the tree
-      # path short — the MS macro assembler chokes on long paths.
-      - name: Bootstrap + build + package
+      # Run mach inside MozillaBuild's own bash (login shell sets up the build
+      # env). `start-shell.bat -c` is a no-op — invoke the msys2 bash directly.
+      # No `./mach bootstrap`: `--enable-bootstrap` (in the mozconfig) fetches the
+      # public toolchains during the build, and the runner already ships VS2022.
+      # cmd keeps the whole bash arg as one token (double-quoted); inside we avoid
+      # double quotes and translate the workspace path with cygpath. `&&` and `()`
+      # are protected by the surrounding quotes and passed through to bash.
+      - name: Build + package (inside MozillaBuild)
         shell: cmd
-        run: |
-          set MOZILLABUILD=C:\mozilla-build
-          for /f %%i in ('type version') do set V=%%i
-          for /f %%i in ('type release') do set R=%%i
-          C:\mozilla-build\start-shell.bat -c "cd neonwolf-%V%-%R% && export MOZBUILD_STATE_PATH=$HOME/.mozbuild && ./mach --no-interactive bootstrap --application-choice=browser && ./mach build && ./mach package && ./mach repackage installer"
+        run: C:\mozilla-build\msys2\usr\bin\bash -lc "cd $(cygpath -u $GITHUB_WORKSPACE) && cd neonwolf-$(cat version)-$(cat release) && export MOZBUILD_STATE_PATH=/c/mozilla-build/state && ./mach build && ./mach package && ./mach repackage installer"
 
       - name: Collect artifacts
         run: |
