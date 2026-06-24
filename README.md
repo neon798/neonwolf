@@ -1,5 +1,7 @@
 # Neonwolf
 
+<sub>🖥️ Part of the **[Hyprwave](https://github.com/neon798/hyprwave)** desktop · alongside [FlatArcade](https://github.com/neon798/flatarcade)</sub>
+
 **Neonwolf** is a synthwave-themed, privacy-focused fork of Firefox, built as a
 **thin overlay on [LibreWolf](https://librewolf.net)**. It takes a stock Firefox
 release, runs LibreWolf's privacy/hardening patch pipeline, and layers on a small,
