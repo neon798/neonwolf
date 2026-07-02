@@ -1,0 +1,6 @@
+{
+    "__COMMENT__": "Neonwolf policy deltas, deep-merged onto settings/distribution/policies.json by scripts/neonwolf-patches.py. Kept in assets/ so the settings submodule stays a clean upstream mirror — this is the policies analog of assets/neonwolf.overrides.cfg.",
+    "policies": {
+        "PasswordManagerEnabled": false
+    }
+}

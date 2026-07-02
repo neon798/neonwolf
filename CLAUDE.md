@@ -4,16 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A **patch-distribution repo** — not application source code. As of the 152
-migration, Neonwolf is a **thin overlay on LibreWolf**: it takes a stock
-Firefox **152.0.1** tarball, runs LibreWolf's patch orchestrator plus a small,
-clearly-marked Neonwolf delta (synthwave branding/theme + a settings override
-layer), and produces the Neonwolf browser. Think of it as LibreWolf's
-`patch && ./mach build` pipeline with a Neonwolf skin on top.
+A **patch-distribution repo** — not application source code. Neonwolf takes a
+stock Firefox **152.0.1** tarball, runs LibreWolf's patch orchestrator to inherit
+its privacy hardening, then layers the Neonwolf delta (synthwave branding/theme,
+a settings override layer, and native engine features under `patches/native/`)
+and produces the Neonwolf browser.
 
-The guiding principle of the migration: **keep everything identical to upstream
-LibreWolf except a minimal, marked delta**, so version bumps stay close to a
-`git merge upstream` away.
+**Governing principle: capability-first heavy fork.** Neonwolf inherits
+LibreWolf's hardening but **owned native features take priority over merge
+convenience — delta size is not a constraint.** The earlier "keep everything
+identical to upstream LibreWolf except a minimal, marked delta" directive is
+**RETIRED**: it optimized for cheap version bumps and quietly vetoed the
+ambitious native work (uBO-parity blocking, farbling, Shields, binary stripping)
+that is the whole point of the project. We still rebase onto LibreWolf each
+release to keep its fixes, but accept a heavier rebase — see `docs/REBASE.md` and
+`PLAN_OF_ACTION.md`.
 
 Version is read from `./version` (`152.0.1`), release from `./release` (`1`).
 The `settings/` directory is a **git submodule** tracking

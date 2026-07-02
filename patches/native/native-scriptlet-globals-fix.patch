@@ -1,0 +1,34 @@
+diff -ruN a/toolkit/actors/CosmeticFilterChild.sys.mjs b/toolkit/actors/CosmeticFilterChild.sys.mjs
+--- a/toolkit/actors/CosmeticFilterChild.sys.mjs	2026-07-02 07:38:06.421650870 -0600
++++ b/toolkit/actors/CosmeticFilterChild.sys.mjs	2026-07-02 07:38:06.415181182 -0600
+@@ -191,12 +191,25 @@
+       return;
+     }
+     this._injected = true;
++    // uBO scriptlets close over a `scriptletGlobals` object that uBO injects as
++    // a preamble (scriptlet-filtering-core.js); without it every scriptlet
++    // throws ReferenceError. Provide an empty one (no debug/logging fields).
++    const source = "const scriptletGlobals = {};\n" + js;
++    // Inject into the page's MAIN world the same CSP-exempt way the WebExtension
++    // content-script engine does (ExtensionContent.sys.mjs #injectIntoMainWorld):
++    // compile to a PrecompiledScript and executeInGlobal(). A `<script>` element
++    // with textContent is governed by the page CSP, so sites with
++    // `require-trusted-types-for 'script'` or a nonce script-src (e.g. YouTube)
++    // block it with a Trusted-Types sink violation and the scriptlets never run.
+     try {
+-      const doc = this.document;
+-      const script = doc.createElement("script");
+-      script.textContent = js;
+-      (doc.head || doc.documentElement).appendChild(script);
+-      script.remove();
++      const url = "data:text/javascript," + encodeURIComponent(source);
++      const script = await ChromeUtils.compileScript(url, {
++        hasReturnValue: false,
++      });
++      if (Cu.isDeadWrapper(window)) {
++        return;
++      }
++      script.executeInGlobal(window);
+     } catch (e) {}
+   }
+ 

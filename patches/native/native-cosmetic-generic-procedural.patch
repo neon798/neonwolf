@@ -1,0 +1,1372 @@
+diff -ruN a/toolkit/components/content-classifier/content_classifier_engine/src/lib.rs b/toolkit/components/content-classifier/content_classifier_engine/src/lib.rs
+--- a/toolkit/components/content-classifier/content_classifier_engine/src/lib.rs
++++ b/toolkit/components/content-classifier/content_classifier_engine/src/lib.rs
+@@ -2,6 +2,7 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+ 
++use std::collections::HashSet;
+ use std::sync::Mutex;
+ 
+ use adblock::Engine;
+@@ -97,6 +98,81 @@
+     NS_OK
+ }
+ 
++// Neonwolf generic cosmetic filtering: given the classes and ids observed on a
++// page (and the per-engine cosmetic exceptions for the current url), return the
++// generic element-hiding selectors that apply.
++#[no_mangle]
++pub unsafe extern "C" fn content_classifier_engine_hidden_class_id_selectors(
++    engine: *const ContentClassifierFFIEngine,
++    classes: &ThinVec<nsCString>,
++    ids: &ThinVec<nsCString>,
++    exceptions: &ThinVec<nsCString>,
++    out_selectors: &mut ThinVec<nsCString>,
++) -> nsresult {
++    if engine.is_null() {
++        return NS_ERROR_INVALID_ARG;
++    }
++    let engine = &(*engine).engine;
++
++    let classes_vec: Vec<String> = classes
++        .iter()
++        .map(|c| String::from_utf8_lossy(c.as_ref()).to_string())
++        .collect();
++    let ids_vec: Vec<String> = ids
++        .iter()
++        .map(|c| String::from_utf8_lossy(c.as_ref()).to_string())
++        .collect();
++    let exceptions_set: HashSet<String> = exceptions
++        .iter()
++        .map(|c| String::from_utf8_lossy(c.as_ref()).to_string())
++        .collect();
++
++    out_selectors.clear();
++    for selector in engine.hidden_class_id_selectors(&classes_vec, &ids_vec, &exceptions_set) {
++        out_selectors.push(nsCString::from(selector));
++    }
++    NS_OK
++}
++
++// Neonwolf cosmetic filtering: return the url-specific cosmetic context for
++// aUrl: hostname-specific hide selectors, procedural/action filters (as JSON
++// strings), the cosmetic exceptions, and whether generic rules are disabled
++// for this page ($generichide).
++#[no_mangle]
++pub unsafe extern "C" fn content_classifier_engine_cosmetic_context(
++    engine: *const ContentClassifierFFIEngine,
++    url: &nsACString,
++    out_hide_selectors: &mut ThinVec<nsCString>,
++    out_procedural_actions: &mut ThinVec<nsCString>,
++    out_exceptions: &mut ThinVec<nsCString>,
++    out_generichide: *mut bool,
++) -> nsresult {
++    if engine.is_null() || out_generichide.is_null() {
++        return NS_ERROR_INVALID_ARG;
++    }
++    let engine = &(*engine).engine;
++    let url_str = String::from_utf8_lossy(url.as_ref()).to_string();
++    let r = engine.url_cosmetic_resources(&url_str);
++
++    out_hide_selectors.clear();
++    for selector in r.hide_selectors {
++        out_hide_selectors.push(nsCString::from(selector));
++    }
++
++    out_procedural_actions.clear();
++    for action in r.procedural_actions {
++        out_procedural_actions.push(nsCString::from(action));
++    }
++
++    out_exceptions.clear();
++    for exception in r.exceptions {
++        out_exceptions.push(nsCString::from(exception));
++    }
++
++    *out_generichide = r.generichide;
++    NS_OK
++}
++
+ #[no_mangle]
+ pub unsafe extern "C" fn content_classifier_engine_check_network_request_preparsed(
+     engine: *const ContentClassifierFFIEngine,
+diff -ruN a/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h b/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h
+--- a/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h
++++ b/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h
+@@ -96,6 +96,36 @@
+                                                              &aOut);
+   }
+ 
++  // Neonwolf generic cosmetic filtering: collect the generic element-hiding
++  // selectors that apply to the given page classes/ids, excluding any covered
++  // by aExceptions (the per-url cosmetic exceptions from GetCosmeticContext).
++  nsresult GetHiddenClassIdSelectors(const nsTArray<nsCString>& aClasses,
++                                     const nsTArray<nsCString>& aIds,
++                                     const nsTArray<nsCString>& aExceptions,
++                                     nsTArray<nsCString>& aOut) {
++    if (!mEngine) {
++      return NS_ERROR_NOT_AVAILABLE;
++    }
++    return content_classifier_engine_hidden_class_id_selectors(
++        mEngine, &aClasses, &aIds, &aExceptions, &aOut);
++  }
++
++  // Neonwolf cosmetic filtering: collect the url-specific cosmetic context for
++  // aUrl (hostname-specific hide selectors, procedural/action filters as JSON
++  // strings, cosmetic exceptions, and the $generichide flag).
++  nsresult GetCosmeticContext(const nsACString& aUrl,
++                              nsTArray<nsCString>& aHideSelectors,
++                              nsTArray<nsCString>& aProceduralActions,
++                              nsTArray<nsCString>& aExceptions,
++                              bool& aGenericHide) {
++    if (!mEngine) {
++      return NS_ERROR_NOT_AVAILABLE;
++    }
++    return content_classifier_engine_cosmetic_context(
++        mEngine, &aUrl, &aHideSelectors, &aProceduralActions, &aExceptions,
++        &aGenericHide);
++  }
++
+   ContentClassifierResult CheckNetworkRequest(
+       const ContentClassifierRequest& aRequest);
+ 
+diff -ruN a/toolkit/components/content-classifier/ContentClassifierService.cpp b/toolkit/components/content-classifier/ContentClassifierService.cpp
+--- a/toolkit/components/content-classifier/ContentClassifierService.cpp
++++ b/toolkit/components/content-classifier/ContentClassifierService.cpp
+@@ -594,6 +594,84 @@
+   return NS_OK;
+ }
+ 
++NS_IMETHODIMP ContentClassifierService::GetGenericSelectors(
++    const nsACString& aUrl, const nsTArray<nsCString>& aClasses,
++    const nsTArray<nsCString>& aIds, nsTArray<nsCString>& aRetVal) {
++  aRetVal.Clear();
++
++  MutexAutoLock lock(mLock);
++  if (mInitPhase != InitPhase::InitSucceeded) {
++    return NS_OK;
++  }
++
++  nsTHashSet<nsCString> seen;
++  for (const auto& engine : mBlockEngines) {
++    nsTArray<nsCString> hideSelectors;
++    nsTArray<nsCString> proceduralActions;
++    nsTArray<nsCString> exceptions;
++    bool genericHide = false;
++    if (NS_FAILED(engine->GetCosmeticContext(aUrl, hideSelectors,
++                                             proceduralActions, exceptions,
++                                             genericHide))) {
++      continue;
++    }
++    // A $generichide exception for this url disables this engine's generic
++    // rules entirely.
++    if (genericHide) {
++      continue;
++    }
++
++    nsTArray<nsCString> generic;
++    if (NS_FAILED(engine->GetHiddenClassIdSelectors(aClasses, aIds, exceptions,
++                                                    generic))) {
++      continue;
++    }
++    for (auto& selector : generic) {
++      if (seen.EnsureInserted(selector)) {
++        aRetVal.AppendElement(selector);
++      }
++    }
++  }
++
++  MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Debug,
++              "GetGenericSelectors - url={} classes={} ids={} count={}", aUrl,
++              aClasses.Length(), aIds.Length(), aRetVal.Length());
++  return NS_OK;
++}
++
++NS_IMETHODIMP ContentClassifierService::GetProceduralActions(
++    const nsACString& aUrl, nsTArray<nsCString>& aRetVal) {
++  aRetVal.Clear();
++
++  MutexAutoLock lock(mLock);
++  if (mInitPhase != InitPhase::InitSucceeded) {
++    return NS_OK;
++  }
++
++  nsTHashSet<nsCString> seen;
++  for (const auto& engine : mBlockEngines) {
++    nsTArray<nsCString> hideSelectors;
++    nsTArray<nsCString> proceduralActions;
++    nsTArray<nsCString> exceptions;
++    bool genericHide = false;
++    if (NS_FAILED(engine->GetCosmeticContext(aUrl, hideSelectors,
++                                             proceduralActions, exceptions,
++                                             genericHide))) {
++      continue;
++    }
++    for (auto& action : proceduralActions) {
++      if (seen.EnsureInserted(action)) {
++        aRetVal.AppendElement(action);
++      }
++    }
++  }
++
++  MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Debug,
++              "GetProceduralActions - url={} count={}", aUrl,
++              aRetVal.Length());
++  return NS_OK;
++}
++
+ // Parses a byte buffer of adblock-format filter list text into rules.
+ // Tolerates both LF and CRLF line endings; skips empty lines.
+ static void ParseFilterListRules(const nsTArray<uint8_t>& aData,
+diff -ruN a/toolkit/components/content-classifier/nsIContentClassifierService.idl b/toolkit/components/content-classifier/nsIContentClassifierService.idl
+--- a/toolkit/components/content-classifier/nsIContentClassifierService.idl
++++ b/toolkit/components/content-classifier/nsIContentClassifierService.idl
+@@ -8,7 +8,7 @@
+  * Interface for the content classifier service, allowing JS code to
+  * provide filter list data (e.g. from RemoteSettings).
+  */
+-[scriptable, uuid(3d19968d-4d03-4969-a1f0-5a553e229a32)]
++[scriptable, uuid(b60e1703-cd06-4371-a69c-bb3230e277b4)]
+ interface nsIContentClassifierService : nsISupports {
+     /**
+      * Store filter list data for a named list. The data is the raw
+@@ -35,6 +35,25 @@
+      * service is not initialized or no engine yields selectors.
+      */
+     Array<ACString> getCosmeticHideSelectors(in AUTF8String aUrl);
++
++    /**
++     * Return the deduplicated set of generic element-hiding selectors that
++     * apply to aUrl given the classes and ids observed on the page. Engines
++     * for which aUrl has a $generichide exception contribute nothing, and each
++     * engine's own cosmetic exceptions scope its generic rules (matching uBO
++     * unhide semantics). Empty when the service is not initialized.
++     */
++    Array<ACString> getGenericSelectors(in AUTF8String aUrl,
++                                        in Array<ACString> aClasses,
++                                        in Array<ACString> aIds);
++
++    /**
++     * Return the deduplicated set of procedural / action cosmetic filters that
++     * apply to aUrl, each encoded as a JSON ProceduralOrActionFilter string for
++     * the front-end to execute. These are hostname-specific, so no generichide
++     * gating applies. Empty when the service is not initialized.
++     */
++    Array<ACString> getProceduralActions(in AUTF8String aUrl);
+ };
+ 
+ %{C++
+diff -ruN a/toolkit/actors/CosmeticFilterChild.sys.mjs b/toolkit/actors/CosmeticFilterChild.sys.mjs
+--- a/toolkit/actors/CosmeticFilterChild.sys.mjs
++++ b/toolkit/actors/CosmeticFilterChild.sys.mjs
+@@ -2,42 +2,348 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+-// Neonwolf cosmetic filtering: on document creation, ask the parent for the
+-// element-hiding selectors that apply to this document's URL and inject them
+-// as an agent stylesheet so ad/tracker elements are hidden before paint.
++// Neonwolf cosmetic filtering: a per-document DOM surveyor. On document creation
++// it injects the URL-specific element-hiding selectors (Phase 1, pre-paint) and
++// then continuously surveys the class/id tokens that appear in the page, asking
++// the parent which generic cosmetic selectors apply to them and accumulating
++// those into a second agent stylesheet. Procedural cosmetic filters are handled
++// by a lazily-loaded ProceduralExecutor driven by the same MutationObserver.
++const PROCEDURAL_URI = "resource://gre/actors/CosmeticFilterProcedural.sys.mjs";
++
++// Maximum number of newly-seen tokens surveyed per animation frame; the rest are
++// deferred to the next frame so a token flood can't block the main thread.
++const TOKEN_CAP = 1024;
++
++// uBO procedural pseudo-classes. adblock-rust 0.12.1 returns these rules as raw
++// selector strings mixed into the plain hide/generic selector lists rather than
++// as procedural-action JSON, so they must be partitioned out before any CSS
++// injection: a single invalid selector in a comma-joined rule invalidates the
++// entire agent sheet. Native :has() is valid CSS in FF152 and is intentionally
++// absent from this list; only the uBO-specific operators below are procedural.
++const PROCEDURAL_PSEUDOS = [
++  ":has-text(",
++  ":-abp-has(",
++  ":upward(",
++  ":xpath(",
++  ":matches-css(",
++  ":matches-css-before(",
++  ":matches-css-after(",
++  ":matches-attr(",
++  ":matches-path(",
++  ":min-text-length(",
++  ":watch-attr(",
++  ":if(",
++  ":if-not(",
++  ":remove(",
++  ":style(",
++];
++
++function isProceduralSelector(sel) {
++  for (const pseudo of PROCEDURAL_PSEUDOS) {
++    if (sel.includes(pseudo)) {
++      return true;
++    }
++  }
++  return false;
++}
++
++function partitionSelectors(selectors) {
++  const css = [];
++  const procedural = [];
++  for (const sel of selectors) {
++    if (isProceduralSelector(sel)) {
++      procedural.push(sel);
++    } else {
++      css.push(sel);
++    }
++  }
++  return { css, procedural };
++}
++
++function buildSheetURI(selectors) {
++  if (!selectors.length) {
++    return null;
++  }
++  return (
++    "data:text/css," +
++    encodeURIComponent(selectors.join(",\n") + "{display:none!important}")
++  );
++}
++
+ export class CosmeticFilterChild extends JSWindowActorChild {
++  _url = null;
++  _seenClasses = new Set();
++  _seenIds = new Set();
++  _pendingClasses = new Set();
++  _pendingIds = new Set();
++  _genericSelectors = new Set();
++  _genericSheet = null;
++  _rafHandle = 0;
++  _observer = null;
++  _procedural = null;
++
+   async handleEvent(event) {
+-    if (event.type !== "DOMDocElementInserted") {
+-      return;
++    switch (event.type) {
++      case "DOMDocElementInserted":
++        await this._onDocElementInserted();
++        break;
++      case "DOMContentLoaded":
++        this._onContentLoaded();
++        break;
+     }
++  }
+ 
++  async _onDocElementInserted() {
+     const window = this.contentWindow;
+     const uri = this.document?.documentURIObject;
+     if (!window || !uri || !(uri.schemeIs("http") || uri.schemeIs("https"))) {
+       return;
+     }
++    this._url = uri.spec;
+ 
+-    let selectors;
++    let context;
+     try {
+-      selectors = await this.sendQuery("GetCosmeticHideSelectors", {
+-        url: uri.spec,
+-      });
++      context = await this.sendQuery("GetCosmeticContext", { url: this._url });
+     } catch (e) {
+       return;
+     }
+ 
+-    if (!selectors?.length || Cu.isDeadWrapper(window)) {
++    if (Cu.isDeadWrapper(window)) {
+       return;
+     }
+ 
+-    const css =
+-      "data:text/css," +
+-      encodeURIComponent(selectors.join(",\n") + "{display:none!important}");
+     try {
+-      window.windowUtils.loadSheetUsingURIString(
+-        css,
+-        window.windowUtils.AGENT_SHEET
++      const { ProceduralExecutor } = ChromeUtils.importESModule(PROCEDURAL_URI);
++      this._procedural = new ProceduralExecutor(window, this.document);
++      this._procedural.setFilters(context?.proceduralActions || []);
++    } catch (e) {}
++
++    // Phase 1: inject the URL-specific hide selectors immediately as their own
++    // agent stylesheet (injected once, never rebuilt). Procedural selectors that
++    // arrive mixed into this list are routed to the executor; injecting them as
++    // CSS would invalidate the whole sheet.
++    const hideSelectors = context?.hideSelectors;
++    if (hideSelectors?.length) {
++      const { css: cssSelectors, procedural: procSelectors } =
++        partitionSelectors(hideSelectors);
++      const sheetURI = buildSheetURI(cssSelectors);
++      if (sheetURI) {
++        try {
++          window.windowUtils.loadSheetUsingURIString(
++            sheetURI,
++            window.windowUtils.AGENT_SHEET
++          );
++        } catch (e) {}
++      }
++      if (procSelectors.length) {
++        this._procedural?.addRawSelectors(procSelectors);
++      }
++    }
++
++    try {
++      this._observer = new window.MutationObserver(muts =>
++        this._onMutations(muts)
+       );
++      this._observer.observe(this.document, {
++        subtree: true,
++        childList: true,
++        attributes: true,
++        attributeFilter: ["class", "id"],
++      });
+     } catch (e) {}
++
++    const docEl = this.document.documentElement;
++    if (docEl) {
++      this._collectTokens(docEl);
++    }
++    this._scheduleFlush();
++  }
++
++  _onContentLoaded() {
++    if (!this._url) {
++      return;
++    }
++    const window = this.contentWindow;
++    if (!window || Cu.isDeadWrapper(window)) {
++      return;
++    }
++    const docEl = this.document?.documentElement;
++    if (docEl) {
++      this._collectTokens(docEl);
++    }
++    this._scheduleFlush();
++    this._procedural?.apply();
++  }
++
++  _collectTokens(rootEl) {
++    this._collectTokensShallow(rootEl);
++    let nodes;
++    try {
++      nodes = rootEl.querySelectorAll("[class],[id]");
++    } catch (e) {
++      return;
++    }
++    for (const el of nodes) {
++      this._collectTokensShallow(el);
++    }
++  }
++
++  _collectTokensShallow(el) {
++    const id = el.id;
++    if (id && !this._seenIds.has(id)) {
++      this._seenIds.add(id);
++      this._pendingIds.add(id);
++    }
++    const classList = el.classList;
++    if (classList) {
++      for (const cls of classList) {
++        if (!this._seenClasses.has(cls)) {
++          this._seenClasses.add(cls);
++          this._pendingClasses.add(cls);
++        }
++      }
++    }
++  }
++
++  _onMutations(muts) {
++    for (const mut of muts) {
++      if (mut.type === "attributes") {
++        if (mut.target?.nodeType === 1) {
++          this._collectTokensShallow(mut.target);
++        }
++      } else if (mut.type === "childList") {
++        for (const node of mut.addedNodes) {
++          if (node.nodeType === 1) {
++            this._collectTokens(node);
++          }
++        }
++      }
++    }
++    this._procedural?.markDirty();
++    this._scheduleFlush();
++  }
++
++  _scheduleFlush() {
++    if (this._rafHandle) {
++      return;
++    }
++    const window = this.contentWindow;
++    if (!window) {
++      return;
++    }
++    try {
++      this._rafHandle = window.requestAnimationFrame(() => this._flush());
++    } catch (e) {
++      this._rafHandle = 0;
++    }
++  }
++
++  async _flush() {
++    this._rafHandle = 0;
++    if (!this._pendingClasses.size && !this._pendingIds.size) {
++      return;
++    }
++
++    let classes = [];
++    let ids = [];
++    if (this._pendingClasses.size + this._pendingIds.size > TOKEN_CAP) {
++      let budget = TOKEN_CAP;
++      for (const cls of this._pendingClasses) {
++        if (budget <= 0) {
++          break;
++        }
++        classes.push(cls);
++        budget--;
++      }
++      for (const cls of classes) {
++        this._pendingClasses.delete(cls);
++      }
++      for (const id of this._pendingIds) {
++        if (budget <= 0) {
++          break;
++        }
++        ids.push(id);
++        budget--;
++      }
++      for (const id of ids) {
++        this._pendingIds.delete(id);
++      }
++      // Re-arm for the deferred remainder.
++      this._scheduleFlush();
++    } else {
++      classes = [...this._pendingClasses];
++      ids = [...this._pendingIds];
++      this._pendingClasses.clear();
++      this._pendingIds.clear();
++    }
++
++    const window = this.contentWindow;
++    let sels;
++    try {
++      sels = await this.sendQuery("GetGenericSelectors", {
++        url: this._url,
++        classes,
++        ids,
++      });
++    } catch (e) {
++      return;
++    }
++
++    if (!window || Cu.isDeadWrapper(window)) {
++      return;
++    }
++    if (!sels?.length) {
++      return;
++    }
++
++    const { css: cssSels, procedural: procSels } = partitionSelectors(sels);
++
++    let added = false;
++    for (const sel of cssSels) {
++      if (!this._genericSelectors.has(sel)) {
++        this._genericSelectors.add(sel);
++        added = true;
++      }
++    }
++
++    let procAdded = false;
++    if (procSels.length && this._procedural) {
++      procAdded = this._procedural.addRawSelectors(procSels);
++    }
++
++    if (added) {
++      const utils = window.windowUtils;
++      const uri = buildSheetURI([...this._genericSelectors]);
++      try {
++        if (this._genericSheet) {
++          utils.removeSheetUsingURIString(this._genericSheet, utils.AGENT_SHEET);
++        }
++        if (uri) {
++          utils.loadSheetUsingURIString(uri, utils.AGENT_SHEET);
++          this._genericSheet = uri;
++        }
++      } catch (e) {}
++    }
++
++    if (added || procAdded) {
++      this._procedural?.apply();
++    }
++  }
++
++  didDestroy() {
++    if (this._rafHandle) {
++      try {
++        this.contentWindow?.cancelAnimationFrame(this._rafHandle);
++      } catch (e) {}
++      this._rafHandle = 0;
++    }
++    if (this._observer) {
++      try {
++        this._observer.disconnect();
++      } catch (e) {}
++      this._observer = null;
++    }
++    this._procedural?.destroy();
++    this._procedural = null;
+   }
+ }
+diff -ruN a/toolkit/actors/CosmeticFilterParent.sys.mjs b/toolkit/actors/CosmeticFilterParent.sys.mjs
+--- a/toolkit/actors/CosmeticFilterParent.sys.mjs
++++ b/toolkit/actors/CosmeticFilterParent.sys.mjs
+@@ -6,17 +6,40 @@
+ // the native content-classifier service, which owns the adblock-rust engines.
+ export class CosmeticFilterParent extends JSWindowActorParent {
+   receiveMessage(message) {
+-    if (message.name !== "GetCosmeticHideSelectors") {
+-      return [];
+-    }
+-
++    let service;
+     try {
+-      const service = Cc[
+-        "@mozilla.org/content-classifier-service;1"
+-      ].getService(Ci.nsIContentClassifierService);
+-      return service.getCosmeticHideSelectors(message.data.url);
++      service = Cc["@mozilla.org/content-classifier-service;1"].getService(
++        Ci.nsIContentClassifierService
++      );
+     } catch (e) {
+-      return [];
++      return message.name === "GetCosmeticContext" ? {} : [];
++    }
++
++    const data = message.data;
++    switch (message.name) {
++      case "GetCosmeticHideSelectors":
++        try {
++          return service.getCosmeticHideSelectors(data.url);
++        } catch (e) {
++          return [];
++        }
++      case "GetCosmeticContext":
++        try {
++          return {
++            hideSelectors: service.getCosmeticHideSelectors(data.url),
++            proceduralActions: service.getProceduralActions(data.url),
++          };
++        } catch (e) {
++          return {};
++        }
++      case "GetGenericSelectors":
++        try {
++          return service.getGenericSelectors(data.url, data.classes, data.ids);
++        } catch (e) {
++          return [];
++        }
++      default:
++        return [];
+     }
+   }
+ }
+diff -ruN a/toolkit/actors/moz.build b/toolkit/actors/moz.build
+--- a/toolkit/actors/moz.build
++++ b/toolkit/actors/moz.build
+@@ -48,6 +48,7 @@
+     "ControllersParent.sys.mjs",
+     "CosmeticFilterChild.sys.mjs",
+     "CosmeticFilterParent.sys.mjs",
++    "CosmeticFilterProcedural.sys.mjs",
+     "ExtFindChild.sys.mjs",
+     "FindBarChild.sys.mjs",
+     "FindBarParent.sys.mjs",
+diff -ruN a/toolkit/modules/ActorManagerParent.sys.mjs b/toolkit/modules/ActorManagerParent.sys.mjs
+--- a/toolkit/modules/ActorManagerParent.sys.mjs
++++ b/toolkit/modules/ActorManagerParent.sys.mjs
+@@ -141,6 +141,7 @@
+       esModuleURI: "resource://gre/actors/CosmeticFilterChild.sys.mjs",
+       events: {
+         DOMDocElementInserted: {},
++        DOMContentLoaded: {},
+       },
+     },
+     allFrames: true,
+diff -ruN a/toolkit/actors/CosmeticFilterProcedural.sys.mjs b/toolkit/actors/CosmeticFilterProcedural.sys.mjs
+--- a/toolkit/actors/CosmeticFilterProcedural.sys.mjs
++++ b/toolkit/actors/CosmeticFilterProcedural.sys.mjs
+@@ -0,0 +1,666 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++// Neonwolf procedural cosmetic filtering: evaluates uBO-style procedural
++// cosmetic filters (has-text, matches-css, upward, xpath, ...) against the live
++// DOM and applies their action (hide/style/remove/...). The native part of each
++// filter is folded into a CSS prefix queried with querySelectorAll; the
++// remaining operators are evaluated in JS over the candidate set. Re-running is
++// cheap and idempotent so it can be driven by a MutationObserver.
++
++const HIDE_CLASS = "__nw-proc-hidden";
++
++// Split a `/pattern/flags` string into a precompiled matcher, otherwise treat
++// the argument as a literal substring.
++function compileMatcher(arg) {
++  if (typeof arg !== "string") {
++    return { literal: String(arg ?? "") };
++  }
++  if (arg.length > 1 && arg[0] === "/") {
++    const end = arg.lastIndexOf("/");
++    if (end > 0) {
++      try {
++        return { regex: new RegExp(arg.slice(1, end), arg.slice(end + 1)) };
++      } catch (e) {
++        // Fall through to literal handling on a malformed regex.
++      }
++    }
++  }
++  return { literal: arg };
++}
++
++function testMatcher(matcher, value) {
++  if (value == null) {
++    return false;
++  }
++  if (matcher.regex) {
++    return matcher.regex.test(value);
++  }
++  return value.includes(matcher.literal);
++}
++
++// A procedural operator is "native" (foldable into the CSS prefix) when it is a
++// plain css-selector, or a `has` whose argument is itself a plain selector that
++// FF152 can evaluate through native :has().
++function isNativeSelectorOp(op) {
++  return op.type === "css-selector" || op.type === "has";
++}
++
++// uBO procedural pseudo-class names (no leading ':' or trailing '('). Used to
++// find where the plain-CSS prefix of a raw selector string ends. Native :has()
++// is deliberately excluded so it stays folded in the CSS prefix.
++const PROC_OP_NAMES = new Set([
++  "has-text",
++  "-abp-has",
++  "upward",
++  "xpath",
++  "matches-css",
++  "matches-css-before",
++  "matches-css-after",
++  "matches-attr",
++  "matches-path",
++  "min-text-length",
++  "watch-attr",
++  "if",
++  "if-not",
++  "remove",
++  "style",
++]);
++
++// Map a uBO pseudo name to the internal JSON-op `type` understood by _compileOp.
++const RAW_OP_TYPES = {
++  "has-text": "has-text",
++  "-abp-has": "has",
++  if: "has",
++  "if-not": "has-not",
++  upward: "upward",
++  xpath: "xpath",
++  "matches-css": "matches-css",
++  "matches-css-before": "matches-css-before",
++  "matches-css-after": "matches-css-after",
++  "matches-attr": "matches-attr",
++  "min-text-length": "min-text-length",
++};
++
++// Return the index just past the ')' matching the '(' at `open`, respecting
++// nested parens and quoted strings.
++function skipParens(s, open) {
++  let depth = 0;
++  let quote = null;
++  for (let i = open; i < s.length; i++) {
++    const c = s[i];
++    if (quote) {
++      if (c === "\\") {
++        i++;
++      } else if (c === quote) {
++        quote = null;
++      }
++      continue;
++    }
++    if (c === '"' || c === "'") {
++      quote = c;
++    } else if (c === "(") {
++      depth++;
++    } else if (c === ")") {
++      depth--;
++      if (depth === 0) {
++        return i + 1;
++      }
++    }
++  }
++  return s.length;
++}
++
++// Return the index just past the ']' matching the '[' at `open`.
++function skipBrackets(s, open) {
++  let quote = null;
++  for (let i = open + 1; i < s.length; i++) {
++    const c = s[i];
++    if (quote) {
++      if (c === "\\") {
++        i++;
++      } else if (c === quote) {
++        quote = null;
++      }
++      continue;
++    }
++    if (c === '"' || c === "'") {
++      quote = c;
++    } else if (c === "]") {
++      return i + 1;
++    }
++  }
++  return s.length;
++}
++
++function isNameChar(c) {
++  return (
++    (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "-"
++  );
++}
++
++export class ProceduralExecutor {
++  constructor(window, document) {
++    this._window = window;
++    this._document = document;
++    this._filters = [];
++    this._rafHandle = 0;
++    this._rawSeen = new Set();
++
++    // Idempotency tracking for the various actions.
++    this._styleApplied = new WeakMap();
++    this._removed = new WeakSet();
++    this._removeAttrDone = new WeakMap();
++    this._removeClassDone = new WeakMap();
++
++    try {
++      const css =
++        "data:text/css," +
++        encodeURIComponent(`.${HIDE_CLASS}{display:none!important}`);
++      window.windowUtils.loadSheetUsingURIString(
++        css,
++        window.windowUtils.AGENT_SHEET
++      );
++    } catch (e) {}
++  }
++
++  setFilters(jsonStrings) {
++    const filters = [];
++    for (const raw of jsonStrings || []) {
++      let parsed;
++      try {
++        parsed = JSON.parse(raw);
++      } catch (e) {
++        continue;
++      }
++      const compiled = this._compileFilter(parsed);
++      if (compiled) {
++        filters.push(compiled);
++      }
++    }
++    this._filters = filters;
++  }
++
++  // adblock-rust 0.12.1 surfaces procedural rules as raw uBO selector strings
++  // (e.g. `.box:has-text(Sponsored):upward(2)`) rather than as procedural JSON.
++  // Parse each into the same compiled form `apply()` consumes. Returns true if
++  // any new filter was added.
++  addRawSelectors(selStrings) {
++    let added = false;
++    for (const sel of selStrings || []) {
++      if (typeof sel !== "string" || !sel || this._rawSeen.has(sel)) {
++        continue;
++      }
++      this._rawSeen.add(sel);
++      const filter = this._compileRawSelector(sel);
++      if (filter) {
++        this._filters.push(filter);
++        added = true;
++      }
++    }
++    return added;
++  }
++
++  _compileRawSelector(sel) {
++    const parsed = this._parseRawSelector(sel);
++    if (!parsed) {
++      return null;
++    }
++    const tail = [];
++    const pathOps = [];
++    let action = { kind: "hide" };
++    for (const { name, arg } of parsed.ops) {
++      if (name === "matches-path") {
++        pathOps.push(compileMatcher(arg));
++      } else if (name === "remove") {
++        action = this._compileAction({ type: "remove" });
++      } else if (name === "style") {
++        action = this._compileAction({ type: "style", arg });
++      } else if (name === "watch-attr") {
++        // No-op as a filter; attribute mutations already re-drive apply().
++      } else {
++        const type = RAW_OP_TYPES[name];
++        const op = type ? this._compileOp({ type, arg }) : null;
++        if (op) {
++          tail.push(op);
++        }
++      }
++    }
++    return { prefix: parsed.prefix, tail, pathOps, action };
++  }
++
++  // Split a raw uBO selector into its leading plain-CSS prefix and the ordered
++  // list of procedural `{name, arg}` operators that follow it.
++  _parseRawSelector(sel) {
++    const n = sel.length;
++    let i = 0;
++    let prefixEnd = -1;
++    while (i < n) {
++      const c = sel[i];
++      if (c === "[") {
++        i = skipBrackets(sel, i);
++        continue;
++      }
++      if (c === ":") {
++        let j = i + 1;
++        while (j < n && isNameChar(sel[j])) {
++          j++;
++        }
++        const name = sel.slice(i + 1, j);
++        if (sel[j] === "(") {
++          if (PROC_OP_NAMES.has(name)) {
++            prefixEnd = i;
++            break;
++          }
++          i = skipParens(sel, j);
++          continue;
++        }
++        i = j;
++        continue;
++      }
++      i++;
++    }
++    if (prefixEnd === -1) {
++      return null;
++    }
++
++    const ops = [];
++    let k = prefixEnd;
++    while (k < n && sel[k] === ":") {
++      let j = k + 1;
++      while (j < n && isNameChar(sel[j])) {
++        j++;
++      }
++      const name = sel.slice(k + 1, j);
++      if (sel[j] !== "(") {
++        break;
++      }
++      const end = skipParens(sel, j);
++      ops.push({ name, arg: sel.slice(j + 1, end - 1).trim() });
++      k = end;
++      while (k < n && /\s/.test(sel[k])) {
++        k++;
++      }
++    }
++
++    return { prefix: sel.slice(0, prefixEnd).trim(), ops };
++  }
++
++  _compileFilter(parsed) {
++    const ops = parsed?.selector;
++    if (!Array.isArray(ops) || !ops.length) {
++      return null;
++    }
++
++    // Build the leading maximal run of native selector operators into a single
++    // CSS prefix; the rest become the JS-evaluated tail.
++    let prefix = "";
++    let i = 0;
++    for (; i < ops.length; i++) {
++      const op = ops[i];
++      if (op.type === "css-selector") {
++        prefix = prefix === "" ? op.arg : prefix + " " + op.arg;
++      } else if (op.type === "has" && prefix !== "") {
++        prefix += `:has(${op.arg})`;
++      } else {
++        break;
++      }
++    }
++
++    const tail = [];
++    const pathOps = [];
++    for (; i < ops.length; i++) {
++      const op = ops[i];
++      if (op.type === "matches-path") {
++        pathOps.push(compileMatcher(op.arg));
++        continue;
++      }
++      const compiled = this._compileOp(op);
++      if (compiled) {
++        tail.push(compiled);
++      }
++    }
++
++    return {
++      prefix,
++      tail,
++      pathOps,
++      action: this._compileAction(parsed.action),
++    };
++  }
++
++  _compileOp(op) {
++    switch (op.type) {
++      case "css-selector":
++      case "has":
++      case "has-not":
++      case "upward":
++      case "xpath":
++        return { type: op.type, arg: op.arg };
++      case "has-text":
++      case "min-text-length":
++        return { type: op.type, arg: op.arg, matcher: compileMatcher(op.arg) };
++      case "matches-attr": {
++        const eq = op.arg.indexOf("=");
++        if (eq === -1) {
++          return { type: op.type, name: compileMatcher(op.arg), value: null };
++        }
++        return {
++          type: op.type,
++          name: compileMatcher(op.arg.slice(0, eq)),
++          value: compileMatcher(op.arg.slice(eq + 1)),
++        };
++      }
++      case "matches-css":
++      case "matches-css-before":
++      case "matches-css-after": {
++        const colon = op.arg.indexOf(":");
++        const pseudo =
++          op.type === "matches-css-before"
++            ? "::before"
++            : op.type === "matches-css-after"
++              ? "::after"
++              : null;
++        if (colon === -1) {
++          return { type: "matches-css", prop: op.arg.trim(), pseudo, value: null };
++        }
++        return {
++          type: "matches-css",
++          prop: op.arg.slice(0, colon).trim(),
++          pseudo,
++          value: compileMatcher(op.arg.slice(colon + 1).trim()),
++        };
++      }
++      default:
++        return null;
++    }
++  }
++
++  _compileAction(action) {
++    if (!action || action.type === "style") {
++      const arg = action?.arg;
++      if (!action || arg == null) {
++        return { kind: "hide" };
++      }
++      const normalized = String(arg).replace(/\s+/g, "").toLowerCase();
++      if (normalized === "display:none!important" || normalized === "display:none") {
++        return { kind: "hide" };
++      }
++      return { kind: "style", cssText: arg };
++    }
++    switch (action.type) {
++      case "remove":
++        return { kind: "remove" };
++      case "remove-attr":
++        return { kind: "remove-attr", matcher: compileMatcher(action.arg) };
++      case "remove-class":
++        return { kind: "remove-class", matcher: compileMatcher(action.arg) };
++      default:
++        return { kind: "hide" };
++    }
++  }
++
++  markDirty() {
++    if (this._rafHandle) {
++      return;
++    }
++    try {
++      this._rafHandle = this._window.requestAnimationFrame(() => this.apply());
++    } catch (e) {
++      this._rafHandle = 0;
++    }
++  }
++
++  apply() {
++    if (this._rafHandle) {
++      try {
++        this._window.cancelAnimationFrame(this._rafHandle);
++      } catch (e) {}
++      this._rafHandle = 0;
++    }
++    if (!this._filters.length) {
++      return;
++    }
++    if (Cu.isDeadWrapper(this._window)) {
++      return;
++    }
++    for (const filter of this._filters) {
++      try {
++        this._applyFilter(filter);
++      } catch (e) {}
++    }
++  }
++
++  _applyFilter(filter) {
++    for (const matcher of filter.pathOps) {
++      if (!testMatcher(matcher, this._window.location.pathname)) {
++        return;
++      }
++    }
++
++    let candidates;
++    if (filter.prefix) {
++      candidates = Array.from(this._document.querySelectorAll(filter.prefix));
++    } else if (filter.tail.length) {
++      candidates = Array.from(this._document.querySelectorAll("*"));
++    } else {
++      return;
++    }
++
++    for (const op of filter.tail) {
++      candidates = this._applyOp(op, candidates);
++      if (!candidates.length) {
++        return;
++      }
++    }
++
++    for (const el of candidates) {
++      this._applyAction(filter.action, el);
++    }
++  }
++
++  _applyOp(op, candidates) {
++    switch (op.type) {
++      case "css-selector":
++        return candidates.filter(el => el.matches(op.arg));
++      case "has":
++        return candidates.filter(el => !!el.querySelector(op.arg));
++      case "has-not":
++        return candidates.filter(el => !el.querySelector(op.arg));
++      case "has-text":
++        return candidates.filter(el => testMatcher(op.matcher, el.textContent));
++      case "min-text-length": {
++        const min = parseInt(op.arg, 10) || 0;
++        return candidates.filter(el => el.textContent.length >= min);
++      }
++      case "matches-attr":
++        return candidates.filter(el => this._matchesAttr(op, el));
++      case "matches-css":
++        return candidates.filter(el => this._matchesCss(op, el));
++      case "upward":
++        return this._mapUpward(op, candidates);
++      case "xpath":
++        return this._mapXpath(op, candidates);
++      default:
++        return candidates;
++    }
++  }
++
++  _matchesAttr(op, el) {
++    if (op.name.regex) {
++      for (const attr of el.attributes) {
++        if (
++          op.name.regex.test(attr.name) &&
++          (op.value === null || testMatcher(op.value, attr.value))
++        ) {
++          return true;
++        }
++      }
++      return false;
++    }
++    const name = op.name.literal;
++    if (!el.hasAttribute(name)) {
++      return false;
++    }
++    return op.value === null || testMatcher(op.value, el.getAttribute(name));
++  }
++
++  _matchesCss(op, el) {
++    let style;
++    try {
++      style = this._window.getComputedStyle(el, op.pseudo);
++    } catch (e) {
++      return false;
++    }
++    if (!style) {
++      return false;
++    }
++    const value = style.getPropertyValue(op.prop) || style[op.prop];
++    if (op.value === null) {
++      return value != null && value !== "";
++    }
++    return testMatcher(op.value, value);
++  }
++
++  _mapUpward(op, candidates) {
++    const out = [];
++    const seen = new Set();
++    const n = /^\d+$/.test(String(op.arg).trim())
++      ? parseInt(op.arg, 10)
++      : null;
++    for (const el of candidates) {
++      let target = el;
++      if (n !== null) {
++        for (let k = 0; k < n && target; k++) {
++          target = target.parentElement;
++        }
++      } else {
++        target = el.closest(op.arg);
++      }
++      if (target && !seen.has(target)) {
++        seen.add(target);
++        out.push(target);
++      }
++    }
++    return out;
++  }
++
++  _mapXpath(op, candidates) {
++    const out = [];
++    const seen = new Set();
++    const XPathResult = this._window.XPathResult;
++    for (const el of candidates) {
++      let snapshot;
++      try {
++        snapshot = this._document.evaluate(
++          op.arg,
++          el,
++          null,
++          XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
++          null
++        );
++      } catch (e) {
++        continue;
++      }
++      for (let k = 0; k < snapshot.snapshotLength; k++) {
++        const node = snapshot.snapshotItem(k);
++        if (node && node.nodeType === 1 && !seen.has(node)) {
++          seen.add(node);
++          out.push(node);
++        }
++      }
++    }
++    return out;
++  }
++
++  _applyAction(action, el) {
++    switch (action.kind) {
++      case "hide":
++        if (!el.classList.contains(HIDE_CLASS)) {
++          el.classList.add(HIDE_CLASS);
++        }
++        break;
++      case "style":
++        if (this._styleApplied.get(el) !== action.cssText) {
++          el.style.cssText = action.cssText;
++          this._styleApplied.set(el, action.cssText);
++        }
++        break;
++      case "remove":
++        if (!this._removed.has(el)) {
++          this._removed.add(el);
++          el.remove();
++        }
++        break;
++      case "remove-attr":
++        this._applyRemoveAttr(action, el);
++        break;
++      case "remove-class":
++        this._applyRemoveClass(action, el);
++        break;
++    }
++  }
++
++  _applyRemoveAttr(action, el) {
++    let done = this._removeAttrDone.get(el);
++    const names = [];
++    if (action.matcher.regex) {
++      for (const attr of el.attributes) {
++        if (action.matcher.regex.test(attr.name)) {
++          names.push(attr.name);
++        }
++      }
++    } else {
++      names.push(action.matcher.literal);
++    }
++    for (const name of names) {
++      if (done && done.has(name)) {
++        continue;
++      }
++      if (el.hasAttribute(name)) {
++        el.removeAttribute(name);
++      }
++      if (!done) {
++        done = new Set();
++        this._removeAttrDone.set(el, done);
++      }
++      done.add(name);
++    }
++  }
++
++  _applyRemoveClass(action, el) {
++    let done = this._removeClassDone.get(el);
++    const names = [];
++    if (action.matcher.regex) {
++      for (const cls of el.classList) {
++        if (action.matcher.regex.test(cls)) {
++          names.push(cls);
++        }
++      }
++    } else {
++      names.push(action.matcher.literal);
++    }
++    for (const name of names) {
++      if (done && done.has(name)) {
++        continue;
++      }
++      el.classList.remove(name);
++      if (!done) {
++        done = new Set();
++        this._removeClassDone.set(el, done);
++      }
++      done.add(name);
++    }
++  }
++
++  destroy() {
++    if (this._rafHandle) {
++      try {
++        this._window.cancelAnimationFrame(this._rafHandle);
++      } catch (e) {}
++      this._rafHandle = 0;
++    }
++    this._filters = [];
++  }
++}

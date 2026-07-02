@@ -26,9 +26,14 @@ graph LR
 
 The privacy/hardening baseline comes from the
 [LibreWolf settings](https://codeberg.org/librewolf/settings) repo, tracked here
-as the `settings/` git submodule. The guiding principle is to **stay as close to
-upstream LibreWolf as possible** — the Neonwolf changes are a minimal, marked
-delta so version bumps stay close to a `git merge upstream` away.
+as the `settings/` git submodule. Neonwolf is a **capability-first heavy fork**:
+it inherits LibreWolf's hardening for free, but **owned native features take
+priority over merge convenience** — delta size is not a constraint. The deferred
+native work (uBO-parity blocking, anti-fingerprint farbling, a per-site Shields
+panel, binary-level surface stripping) is the product, not a footnote. We still
+rebase onto LibreWolf each release to keep its fixes, accepting a heavier rebase;
+the procedure lives in [`docs/REBASE.md`](docs/REBASE.md) and the roadmap in
+[`PLAN_OF_ACTION.md`](PLAN_OF_ACTION.md).
 
 ## Download
 
