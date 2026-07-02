@@ -1,47 +1,50 @@
 <panel id="neonwolf-shields-panel" type="arrow" orient="vertical" role="group"
-       xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-  <script src="chrome://browser/content/neonwolf-shields-panel.js"/>
+       shields-available="false">
 
-  <vbox id="neonwolf-shields-header" class="panel-header">
+  <vbox id="neonwolf-shields-header" class="shields-header">
     <hbox align="center">
       <image id="neonwolf-shields-icon" class="neonwolf-shields-icon"/>
-      <label id="neonwolf-shields-host" class="neonwolf-shields-host"/>
+      <label id="neonwolf-shields-host" class="neonwolf-shields-host shields-header-label"/>
     </hbox>
     <label id="neonwolf-shields-status" class="neonwolf-shields-status"/>
-    <description id="neonwolf-shields-count-text"/>
+  </vbox>
+
+  <vbox id="neonwolf-shields-master-row" class="shields-toggle-row">
+    <checkbox id="neonwolf-shields-master"
+              label="Shields UP for this site"/>
+    <description id="neonwolf-shields-master-hint" class="shields-toggle-label">
+      Turn off to allow ads and trackers on this site only.
+    </description>
   </vbox>
 
   <vbox id="neonwolf-shields-controls">
-    <checkbox id="neonwolf-shields-global"
-              label="&neonwolf.shields.enable;"
-              oncommand="NeonwolfShieldsPanel.toggleAll(this.checked);"/>
-
-    <separator/>
+    <label class="shields-stat-label" value="Default protections"/>
 
     <checkbox id="neonwolf-shields-ads"
-              label="&neonwolf.shields.block.ads;"
-              oncommand="NeonwolfShieldsPanel.toggleShield('ads', this.checked);"/>
+              class="shields-toggle-row"
+              label="Block ads"/>
 
     <checkbox id="neonwolf-shields-trackers"
-              label="&neonwolf.shields.block.trackers;"
-              oncommand="NeonwolfShieldsPanel.toggleShield('trackers', this.checked);"/>
+              class="shields-toggle-row"
+              label="Block trackers"/>
 
     <checkbox id="neonwolf-shields-fingerprinting"
-              label="&neonwolf.shields.block.fingerprinting;"
-              oncommand="NeonwolfShieldsPanel.toggleShield('fingerprinting', this.checked);"/>
+              class="shields-toggle-row"
+              label="Block fingerprinting"/>
 
     <checkbox id="neonwolf-shields-cookies"
-              label="&neonwolf.shields.block.cookies;"
-              oncommand="NeonwolfShieldsPanel.toggleShield('cookies', this.checked);"/>
+              class="shields-toggle-row"
+              label="Block cross-site cookies"/>
 
     <checkbox id="neonwolf-shields-httpsUpgrade"
-              label="&neonwolf.shields.upgrade.https;"
-              oncommand="NeonwolfShieldsPanel.toggleShield('httpsUpgrade', this.checked);"/>
+              class="shields-toggle-row"
+              label="Upgrade connections to HTTPS"/>
   </vbox>
 
-  <vbox id="neonwolf-shields-footer">
-    <label id="neonwolf-shields-blocked-label"
-           value="&neonwolf.shields.blocked.count;"/>
-    <label id="neonwolf-shields-count"/>
+  <vbox id="neonwolf-shields-footer" class="shields-footer">
+    <hbox align="center">
+      <label class="shields-footer-label" value="Blocked on this page:"/>
+      <label id="neonwolf-shields-count" class="shields-count-badge"/>
+    </hbox>
   </vbox>
 </panel>

@@ -50,6 +50,8 @@ LISTS = [
     ("ubo-privacy", "ubo-privacy.txt"),
     ("ubo-quickfixes", "ubo-quickfixes.txt"),
     ("adguard-mobile", "adguard-mobile.txt"),
+    ("adguard-base", "adguard-base.txt"),
+    ("adguard-tracking", "adguard-tracking.txt"),
 ]
 
 
@@ -97,6 +99,38 @@ def main(assets_dir, tree):
     _append_packaging(os.path.join(main_dir, "moz.build"), packaged)
     print("gen-adblock-dump: packaged %d lists into %s" % (len(records), COLLECTION))
 
+    # M2 scriptlet/redirect resource bundle (assets/ubo-resources.json, vendored
+    # by scripts/fetch-ubo-resources.py). Optional: if absent, scriptlet injection
+    # gracefully degrades to empty. Packages to <GreD>/browser/defaults/settings/
+    # ubo-resources.json, where ContentClassifierService reads it.
+    _package_resource_bundle(assets_dir, main_dir)
+
+
+def _package_resource_bundle(assets_dir, main_dir):
+    src = os.path.join(assets_dir, "..", "ubo-resources.json")
+    if not os.path.exists(src):
+        print("gen-adblock-dump: no ubo-resources.json; scriptlets disabled")
+        return
+    # MUST live at the dumps ROOT, not under main/: gen_last_modified.py globs
+    # services/settings/dumps/*/*.json and parses each as a RemoteSettings
+    # changeset (requires a "data"/"timestamp" shape). ubo-resources.json is a
+    # bare Resource array, so placing it one level deeper would break that build
+    # step. A file directly in dumps/ is not matched by the */*.json glob.
+    dumps_root = os.path.dirname(main_dir)  # services/settings/dumps
+    with open(src, "rb") as f:
+        data = f.read()
+    with open(os.path.join(dumps_root, "ubo-resources.json"), "wb") as f:
+        f.write(data)
+    mozbuild = os.path.join(dumps_root, "moz.build")
+    marker = "# Neonwolf M2: scriptlet/redirect resource bundle"
+    with open(mozbuild, "r") as f:
+        if marker in f.read():
+            return  # idempotent
+    with open(mozbuild, "a") as f:
+        f.write('\n%s\nFINAL_TARGET_FILES.defaults.settings += ["ubo-resources.json"]\n'
+                % marker)
+    print("gen-adblock-dump: packaged ubo-resources.json (%d bytes)" % len(data))
+
 
 def _append_packaging(mozbuild, packaged):
     with open(mozbuild, "r") as f:
@@ -107,7 +141,8 @@ def _append_packaging(mozbuild, packaged):
         'FINAL_TARGET_FILES.defaults.settings.main += ["%s.json"]\n' % COLLECTION,
         'FINAL_TARGET_FILES.defaults.settings.main["%s"] += [\n' % COLLECTION,
     ]
-    lines += ['    "%s",\n' % p for p in packaged]
+    # FINAL_TARGET_FILES is a StrictOrderingOnAppendList: entries must be sorted.
+    lines += ['    "%s",\n' % p for p in sorted(packaged)]
     lines.append("]\n")
     with open(mozbuild, "a") as f:
         f.write("".join(lines))

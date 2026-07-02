@@ -3,18 +3,23 @@
 #
 # The script that patches the firefox source into the neonwolf source.
 #
-# Neonwolf is a thin overlay on LibreWolf: this script is upstream's
-# librewolf-patches.py with a small, clearly-marked Neonwolf delta:
+# Neonwolf is a CAPABILITY-FIRST heavy fork. It starts from upstream's
+# librewolf-patches.py and inherits LibreWolf's privacy hardening, but it
+# does NOT treat delta size as a constraint: owned native features take
+# priority over merge convenience. The Neonwolf delta currently includes:
 #   - source dir named neonwolf-*
 #   - synthwave theme injected via fail-loud helpers (replace_or_die)
 #   - Neonwolf settings layered as overrides on top of librewolf.cfg
-# Everything else is intentionally kept identical to upstream so that
-# version bumps stay a `git merge upstream` away.
+#   - native engine features (adblock, farbling, Shields, ...) under patches/native/
+# We still rebase onto LibreWolf each release to keep its hardening fixes
+# for free, but the old "keep everything identical to upstream / minimal
+# marked delta" prime directive is RETIRED. See docs/REBASE.md.
 #
 
 
 import os
 import sys
+import json
 import base64
 import optparse
 import time
@@ -227,6 +232,27 @@ def neonwolf_patches():
     # patches that reference librewolf.* prefs keep working.
     exec('cat ../../assets/neonwolf.overrides.cfg >> librewolf.cfg')
     exec('cp -v ../../settings/distribution/policies.json .')
+    # Deep-merge Neonwolf policy deltas (e.g. PasswordManagerEnabled:false, which
+    # disables the built-in password manager, blocks about:logins and removes the
+    # Logins & Passwords section from preferences) on top of the LibreWolf
+    # baseline. Kept in assets/ so the settings submodule stays a clean upstream
+    # mirror — the policies analog of neonwolf.overrides.cfg.
+    with open('policies.json') as f:
+        base_policies = json.load(f)
+    with open('../../assets/neonwolf.policies.json') as f:
+        neonwolf_policies = json.load(f)
+    base_policies.setdefault('policies', {}).update(neonwolf_policies.get('policies', {}))
+    # Neonwolf ships uBlock Origin's engine as NATIVE browser code
+    # (UBONetFilter.sys.mjs + the content-classifier cosmetic/scriptlet layer),
+    # so LibreWolf's force-install of the uBO *extension* is dropped: an
+    # extension is a fingerprint vector (extension flag, web-accessible
+    # resources, content-script signatures) and would double-block alongside
+    # the native engine. Users may still install it manually if they insist.
+    base_policies.get('policies', {}).get('ExtensionSettings', {}).pop(
+        'uBlock0@raymondhill.net', None)
+    with open('policies.json', 'w') as f:
+        json.dump(base_policies, f, indent=4)
+    print('merged: assets/neonwolf.policies.json -> policies.json')
     exec('cp -v ../../settings/defaults/pref/local-settings.js .')
     leave_srcdir();
 

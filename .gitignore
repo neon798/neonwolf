@@ -5,3 +5,10 @@
 /docker-dist
 *.log
 patchfail.out
+scripts/__pycache__/
+# validation scorecards are generated; commit reference ones explicitly with -f
+scripts/validate/scorecards/
+scripts/validate/.venv/
+# M2 scriptlet bundle is vendored via scripts/fetch-ubo-resources.py (networked), not committed
+assets/ubo-resources.json
+__pycache__/

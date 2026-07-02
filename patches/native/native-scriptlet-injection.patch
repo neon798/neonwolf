@@ -1,0 +1,417 @@
+diff -ruN a/toolkit/components/content-classifier/content_classifier_engine/src/lib.rs b/toolkit/components/content-classifier/content_classifier_engine/src/lib.rs
+--- a/toolkit/components/content-classifier/content_classifier_engine/src/lib.rs
++++ b/toolkit/components/content-classifier/content_classifier_engine/src/lib.rs
+@@ -5,9 +5,12 @@
+ use std::collections::HashSet;
+ use std::sync::Mutex;
+ 
++use adblock::resources::Resource;
+ use adblock::Engine;
+ use cstr::cstr;
+-use nserror::{nsresult, NS_ERROR_INVALID_ARG, NS_ERROR_SERVICE_NOT_AVAILABLE, NS_OK};
++use nserror::{
++    nsresult, NS_ERROR_FAILURE, NS_ERROR_INVALID_ARG, NS_ERROR_SERVICE_NOT_AVAILABLE, NS_OK,
++};
+ use nsstring::{nsACString, nsCString};
+ use thin_vec::ThinVec;
+ 
+@@ -77,6 +80,45 @@
+     }
+ }
+ 
++// Neonwolf scriptlet injection: load the scriptlet/redirect resource bundle (a
++// JSON array of adblock Resource objects) into the engine. Without this, the
++// engine's assembled injected_script is always empty. Takes a *mut handle
++// because Engine::use_resources requires &mut self.
++#[no_mangle]
++pub unsafe extern "C" fn content_classifier_engine_use_resources(
++    engine: *mut ContentClassifierFFIEngine,
++    resources_json: &nsACString,
++) -> nsresult {
++    if engine.is_null() {
++        return NS_ERROR_INVALID_ARG;
++    }
++    let json_str = String::from_utf8_lossy(resources_json.as_ref()).to_string();
++    let resources: Vec<Resource> = match serde_json::from_str(&json_str) {
++        Ok(r) => r,
++        Err(_) => return NS_ERROR_FAILURE,
++    };
++    (&mut (*engine).engine).use_resources(resources);
++    NS_OK
++}
++
++// Neonwolf scriptlet injection: return the assembled scriptlet JS that applies
++// to aUrl. Empty if no scriptlets match or no resources were loaded.
++#[no_mangle]
++pub unsafe extern "C" fn content_classifier_engine_injected_script(
++    engine: *const ContentClassifierFFIEngine,
++    url: &nsACString,
++    out: &mut nsCString,
++) -> nsresult {
++    if engine.is_null() {
++        return NS_ERROR_INVALID_ARG;
++    }
++    let engine = &(*engine).engine;
++    let url_str = String::from_utf8_lossy(url.as_ref()).to_string();
++    let r = engine.url_cosmetic_resources(&url_str);
++    out.assign(&r.injected_script);
++    NS_OK
++}
++
+ // Neonwolf cosmetic filtering: return the element-hiding ("##") selectors that
+ // apply to aUrl, so the front-end can inject a display:none stylesheet.
+ #[no_mangle]
+diff -ruN a/toolkit/components/content-classifier/content_classifier_engine/Cargo.toml b/toolkit/components/content-classifier/content_classifier_engine/Cargo.toml
+--- a/toolkit/components/content-classifier/content_classifier_engine/Cargo.toml
++++ b/toolkit/components/content-classifier/content_classifier_engine/Cargo.toml
+@@ -10,5 +10,6 @@
+ cstr = "0.2"
+ nsstring = { path = "../../../../xpcom/rust/nsstring" }
+ nserror = { path = "../../../../xpcom/rust/nserror" }
++serde_json = "1.0"
+ thin-vec = { version = "0.2.1", features = ["gecko-ffi"] }
+ xpcom = { path = "../../../../xpcom/rust/xpcom" }
+diff -ruN a/Cargo.lock b/Cargo.lock
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -1116,6 +1116,7 @@
+  "cstr",
+  "nserror",
+  "nsstring",
++ "serde_json",
+  "thin-vec",
+  "xpcom",
+ ]
+diff -ruN a/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h b/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h
+--- a/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h
++++ b/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h
+@@ -86,6 +86,25 @@
+     return content_classifier_engine_from_rules(&aRules, &mEngine);
+   }
+ 
++  // Neonwolf scriptlet injection: load the scriptlet/redirect resource bundle
++  // (a JSON array of adblock Resource objects) into the engine, so that
++  // GetInjectedScript can return assembled scriptlet JS.
++  nsresult UseResources(const nsACString& aJson) {
++    if (!mEngine) {
++      return NS_ERROR_NOT_AVAILABLE;
++    }
++    return content_classifier_engine_use_resources(mEngine, &aJson);
++  }
++
++  // Neonwolf scriptlet injection: collect the assembled scriptlet JS that
++  // applies to aUrl. Empty when no scriptlets match or no resources loaded.
++  nsresult GetInjectedScript(const nsACString& aUrl, nsCString& aOut) {
++    if (!mEngine) {
++      return NS_ERROR_NOT_AVAILABLE;
++    }
++    return content_classifier_engine_injected_script(mEngine, &aUrl, &aOut);
++  }
++
+   // Neonwolf cosmetic filtering: collect element-hiding selectors for aUrl.
+   nsresult GetCosmeticHideSelectors(const nsACString& aUrl,
+                                     nsTArray<nsCString>& aOut) {
+diff -ruN a/toolkit/components/content-classifier/ContentClassifierService.cpp b/toolkit/components/content-classifier/ContentClassifierService.cpp
+--- a/toolkit/components/content-classifier/ContentClassifierService.cpp
++++ b/toolkit/components/content-classifier/ContentClassifierService.cpp
+@@ -20,8 +20,12 @@
+ #include "mozilla/StaticPtr.h"
+ #include "nsIAsyncShutdown.h"
+ #include "nsIChannel.h"
++#include "nsIFile.h"
++#include "nsIInputStream.h"
+ #include "nsIStreamLoader.h"
+ #include "nsIURI.h"
++#include "nsDirectoryServiceDefs.h"
++#include "nsDirectoryServiceUtils.h"
+ #include "nsNetUtil.h"
+ #include "nsContentUtils.h"
+ #include "nsIWebProgressListener.h"
+@@ -672,6 +676,32 @@
+   return NS_OK;
+ }
+ 
++NS_IMETHODIMP ContentClassifierService::GetInjectedScript(
++    const nsACString& aUrl, nsACString& aRetVal) {
++  aRetVal.Truncate();
++
++  MutexAutoLock lock(mLock);
++  if (mInitPhase != InitPhase::InitSucceeded) {
++    return NS_OK;
++  }
++
++  for (const auto& engine : mBlockEngines) {
++    nsCString script;
++    if (NS_FAILED(engine->GetInjectedScript(aUrl, script)) ||
++        script.IsEmpty()) {
++      continue;
++    }
++    if (!aRetVal.IsEmpty()) {
++      aRetVal.Append('\n');
++    }
++    aRetVal.Append(script);
++  }
++
++  MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Debug,
++              "GetInjectedScript - url={} length={}", aUrl, aRetVal.Length());
++  return NS_OK;
++}
++
+ // Parses a byte buffer of adblock-format filter list text into rules.
+ // Tolerates both LF and CRLF line endings; skips empty lines.
+ static void ParseFilterListRules(const nsTArray<uint8_t>& aData,
+@@ -690,6 +720,76 @@
+   }
+ }
+ 
++void ContentClassifierService::EnsureResourceBundleLoaded() {
++  mLock.AssertCurrentThreadOwns();
++
++  if (mResourceBundleLoaded) {
++    return;
++  }
++  // Mark as attempted regardless of outcome: a missing/unreadable bundle is a
++  // permanent (for this session) graceful-degradation state, not retried.
++  mResourceBundleLoaded = true;
++
++  nsCOMPtr<nsIFile> file;
++  nsresult rv = NS_GetSpecialDirectory(NS_GRE_DIR, getter_AddRefs(file));
++  if (NS_FAILED(rv) || !file) {
++    return;
++  }
++  // App-specific defaults live under <GreD>/browser/defaults/settings/ (the
++  // lists dump lands at browser/defaults/settings/main/), so the bundle that
++  // FINAL_TARGET_FILES.defaults.settings packages is under browser/ too.
++  file->AppendNative("browser"_ns);
++  file->AppendNative("defaults"_ns);
++  file->AppendNative("settings"_ns);
++  file->AppendNative("ubo-resources.json"_ns);
++
++  bool exists = false;
++  if (NS_FAILED(file->Exists(&exists)) || !exists) {
++    MOZ_LOG(gContentClassifierLog, LogLevel::Debug,
++            ("EnsureResourceBundleLoaded - bundle absent; scriptlet injection "
++             "disabled"));
++    return;
++  }
++
++  int64_t size = 0;
++  if (NS_FAILED(file->GetFileSize(&size)) || size <= 0) {
++    return;
++  }
++
++  nsCOMPtr<nsIInputStream> stream;
++  rv = NS_NewLocalFileInputStream(getter_AddRefs(stream), file);
++  if (NS_FAILED(rv) || !stream) {
++    return;
++  }
++
++  nsAutoCString contents;
++  rv = NS_ReadInputStreamToString(stream, contents, static_cast<int64_t>(size));
++  if (NS_FAILED(rv)) {
++    return;
++  }
++
++  mResourceBundle = contents;
++  MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Info,
++              "EnsureResourceBundleLoaded - loaded resource bundle ({} bytes)",
++              mResourceBundle.Length());
++}
++
++void ContentClassifierService::ApplyResourceBundle(
++    ContentClassifierEngine* aEngine) {
++  mLock.AssertCurrentThreadOwns();
++
++  EnsureResourceBundleLoaded();
++  if (mResourceBundle.IsEmpty()) {
++    return;
++  }
++  nsresult rv = aEngine->UseResources(mResourceBundle);
++  if (NS_FAILED(rv)) {
++    MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Warning,
++                "ApplyResourceBundle - UseResources failed: {:#x}",
++                static_cast<uint32_t>(rv));
++  }
++}
++
+ void ContentClassifierService::RebuildEnginesFromStoredData() {
+   mLock.AssertCurrentThreadOwns();
+ 
+@@ -744,6 +844,8 @@
+                 continue;
+               }
+ 
++              ApplyResourceBundle(engine.get());
++
+               MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Info,
+                           "RebuildEnginesFromStoredData - loaded engine "
+                           "for \"{}\" with {} rules",
+@@ -909,6 +1011,7 @@
+               if (NS_FAILED(rv)) {
+                 continue;
+               }
++              self->ApplyResourceBundle(engine.get());
+               self->mBlockEngines.AppendElement(std::move(engine));
+             }
+ 
+@@ -918,6 +1021,7 @@
+               if (NS_FAILED(rv)) {
+                 continue;
+               }
++              self->ApplyResourceBundle(engine.get());
+               self->mAnnotateEngines.AppendElement(std::move(engine));
+             }
+ 
+diff -ruN a/toolkit/components/content-classifier/ContentClassifierService.h b/toolkit/components/content-classifier/ContentClassifierService.h
+--- a/toolkit/components/content-classifier/ContentClassifierService.h
++++ b/toolkit/components/content-classifier/ContentClassifierService.h
+@@ -66,6 +66,13 @@
+   static void OnPrefChange(const char* aPref, void* aData);
+   void LoadFilterLists();
+   void RebuildEnginesFromStoredData();
++  // Neonwolf scriptlet injection: lazily read the packaged scriptlet/redirect
++  // resource bundle (defaults/settings/ubo-resources.json under the GRE dir)
++  // into mResourceBundle. The bundle may be absent; on any failure
++  // mResourceBundle stays empty and scriptlet injection is silently disabled.
++  void EnsureResourceBundleLoaded() MOZ_REQUIRES(mLock);
++  // Loads the resource bundle into a freshly built engine, if non-empty.
++  void ApplyResourceBundle(ContentClassifierEngine* aEngine) MOZ_REQUIRES(mLock);
+   void InitRSClient();
+   void ShutdownRSClient();
+   void RemoveBlocker();
+@@ -89,6 +96,11 @@
+   nsTHashMap<nsCStringHashKey, nsTArray<uint8_t>> mFilterListData
+       MOZ_GUARDED_BY(mLock);
+ 
++  // Cached scriptlet/redirect resource bundle JSON (see
++  // EnsureResourceBundleLoaded). Empty when the bundle file is absent.
++  nsCString mResourceBundle MOZ_GUARDED_BY(mLock);
++  bool mResourceBundleLoaded MOZ_GUARDED_BY(mLock) = false;
++
+   // RemoteSettings client for fetching filter lists. All reads and
+   // writes must happen on the main thread; each call site asserts.
+   nsCOMPtr<nsIContentClassifierRemoteSettingsClient> mRSClient;
+diff -ruN a/toolkit/components/content-classifier/nsIContentClassifierService.idl b/toolkit/components/content-classifier/nsIContentClassifierService.idl
+--- a/toolkit/components/content-classifier/nsIContentClassifierService.idl
++++ b/toolkit/components/content-classifier/nsIContentClassifierService.idl
+@@ -8,7 +8,7 @@
+  * Interface for the content classifier service, allowing JS code to
+  * provide filter list data (e.g. from RemoteSettings).
+  */
+-[scriptable, uuid(b60e1703-cd06-4371-a69c-bb3230e277b4)]
++[scriptable, uuid(2f9a4c11-5d2e-4b6c-9a3f-7e1c8d05a6b2)]
+ interface nsIContentClassifierService : nsISupports {
+     /**
+      * Store filter list data for a named list. The data is the raw
+@@ -54,6 +54,14 @@
+      * gating applies. Empty when the service is not initialized.
+      */
+     Array<ACString> getProceduralActions(in AUTF8String aUrl);
++
++    /**
++     * Return the assembled scriptlet JS for aUrl, concatenated across all
++     * active block engines (each engine may contribute scriptlets from its own
++     * list). Empty when the service is not initialized, no scriptlet/redirect
++     * resource bundle was loaded, or no scriptlets apply to aUrl.
++     */
++    AUTF8String getInjectedScript(in AUTF8String aUrl);
+ };
+ 
+ %{C++
+diff -ruN a/toolkit/actors/CosmeticFilterChild.sys.mjs b/toolkit/actors/CosmeticFilterChild.sys.mjs
+--- a/toolkit/actors/CosmeticFilterChild.sys.mjs
++++ b/toolkit/actors/CosmeticFilterChild.sys.mjs
+@@ -81,6 +81,7 @@
+   _rafHandle = 0;
+   _observer = null;
+   _procedural = null;
++  _injected = false;
+ 
+   async handleEvent(event) {
+     switch (event.type) {
+@@ -101,6 +102,19 @@
+     }
+     this._url = uri.spec;
+ 
++    // Phase 2: scriptlet injection. Kick off the query alongside the cosmetic
++    // context query so both round-trips run concurrently, then inject the
++    // assembled scriptlet JS into the page's MAIN world as early as possible
++    // (before page scripts run). The cosmetic context query is awaited
++    // afterwards so element hiding is unaffected.
++    let scriptPromise = null;
++    try {
++      scriptPromise = this.sendQuery("GetInjectedScript", { url: this._url });
++    } catch (e) {}
++    if (scriptPromise) {
++      await this._injectScriptlets(scriptPromise);
++    }
++
+     let context;
+     try {
+       context = await this.sendQuery("GetCosmeticContext", { url: this._url });
+@@ -159,6 +173,33 @@
+     this._scheduleFlush();
+   }
+ 
++  async _injectScriptlets(scriptPromise) {
++    if (this._injected) {
++      return;
++    }
++    let js;
++    try {
++      js = await scriptPromise;
++    } catch (e) {
++      return;
++    }
++    if (this._injected || !js || typeof js !== "string") {
++      return;
++    }
++    const window = this.contentWindow;
++    if (!window || Cu.isDeadWrapper(window)) {
++      return;
++    }
++    this._injected = true;
++    try {
++      const doc = this.document;
++      const script = doc.createElement("script");
++      script.textContent = js;
++      (doc.head || doc.documentElement).appendChild(script);
++      script.remove();
++    } catch (e) {}
++  }
++
+   _onContentLoaded() {
+     if (!this._url) {
+       return;
+diff -ruN a/toolkit/actors/CosmeticFilterParent.sys.mjs b/toolkit/actors/CosmeticFilterParent.sys.mjs
+--- a/toolkit/actors/CosmeticFilterParent.sys.mjs
++++ b/toolkit/actors/CosmeticFilterParent.sys.mjs
+@@ -12,7 +12,14 @@
+         Ci.nsIContentClassifierService
+       );
+     } catch (e) {
+-      return message.name === "GetCosmeticContext" ? {} : [];
++      switch (message.name) {
++        case "GetCosmeticContext":
++          return {};
++        case "GetInjectedScript":
++          return "";
++        default:
++          return [];
++      }
+     }
+ 
+     const data = message.data;
+@@ -38,6 +45,12 @@
+         } catch (e) {
+           return [];
+         }
++      case "GetInjectedScript":
++        try {
++          return service.getInjectedScript(data.url);
++        } catch (e) {
++          return "";
++        }
+       default:
+         return [];
+     }

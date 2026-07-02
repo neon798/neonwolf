@@ -1,16 +1,26 @@
 /* Neonwolf Shields UI - Brave-style shield panel */
 
+#neonwolf-shields-button-container {
+  -moz-context-properties: fill;
+  fill: var(--neonwolf-text-secondary);
+  padding: 0 4px;
+}
+
 #neonwolf-shields-button {
-  list-style-image: url(chrome://browser/skin/neonwolf-shields.svg) !important;
-  fill: var(--neonwolf-text-secondary) !important;
+  width: 16px;
+  height: 16px;
+  list-style-image: url(chrome://browser/content/icons/neonwolf-shields-up.svg) !important;
 }
 
+#neonwolf-shields-button-container[shields="down"] #neonwolf-shields-button,
 #neonwolf-shields-button[shields="down"] {
-  fill: #ff4444 !important;
+  list-style-image: url(chrome://browser/content/icons/neonwolf-shields-down.svg) !important;
+  filter: drop-shadow(0 0 3px #ff4444) !important;
 }
 
+#neonwolf-shields-button-container[shields="up"] #neonwolf-shields-button,
 #neonwolf-shields-button[shields="up"] {
-  fill: var(--neonwolf-accent-cyan) !important;
+  list-style-image: url(chrome://browser/content/icons/neonwolf-shields-up.svg) !important;
   filter: drop-shadow(0 0 3px var(--neonwolf-accent-cyan)) !important;
 }
 
@@ -91,4 +101,34 @@
 .shields-advanced-link:hover {
   color: var(--neonwolf-accent-pink) !important;
   text-decoration: underline !important;
+}
+
+/* M3 per-site control elements */
+.neonwolf-shields-host {
+  color: var(--neonwolf-accent-pink) !important;
+  text-shadow: 0 0 5px var(--neonwolf-accent-pink) !important;
+}
+
+.neonwolf-shields-status {
+  color: var(--neonwolf-text-secondary) !important;
+  font-size: 11px !important;
+  margin-top: 4px !important;
+}
+
+#neonwolf-shields-master {
+  color: var(--neonwolf-accent-cyan) !important;
+  font-weight: bold !important;
+}
+
+#neonwolf-shields-master-hint {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 10px !important;
+}
+
+/* When shields are not available (about:, file:), dim the controls. */
+#neonwolf-shields-panel[shields-available="false"] #neonwolf-shields-controls,
+#neonwolf-shields-panel[shields-available="false"] #neonwolf-shields-master-row,
+#neonwolf-shields-panel[shields-available="false"] #neonwolf-shields-footer {
+  opacity: 0.4 !important;
+  pointer-events: none !important;
 }

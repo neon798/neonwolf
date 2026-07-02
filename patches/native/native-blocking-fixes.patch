@@ -1,0 +1,163 @@
+diff -ruN a/toolkit/components/content-classifier/ContentClassifierRemoteSettingsClient.sys.mjs b/toolkit/components/content-classifier/ContentClassifierRemoteSettingsClient.sys.mjs
+--- a/toolkit/components/content-classifier/ContentClassifierRemoteSettingsClient.sys.mjs
++++ b/toolkit/components/content-classifier/ContentClassifierRemoteSettingsClient.sys.mjs
+@@ -197,6 +197,35 @@
+       return false;
+     }
+ 
++    // Neonwolf: read the bundled attachment directly from the packaged dump
++    // resource. RemoteSettings' attachments.download() is unreliable for our
++    // dump-only collection -- its first dump read throws (it tries the network
++    // for server info first and throws ServerInfoError), poisoning its cached
++    // promise so every dump fallback is then skipped. The bundled file is at a
++    // deterministic, network-free resource URL, so read it directly; verify the
++    // size against the record before using it.
++    try {
++      let url = `resource://app/defaults/settings/main/${COLLECTION_NAME}/${record.id}`;
++      let resp = await fetch(url);
++      if (resp.ok) {
++        let bytes = new Uint8Array(await resp.arrayBuffer());
++        if (bytes.length === record.attachment.size) {
++          service.setFilterListData(record.Name, bytes);
++          lazy.log.debug(
++            `Loaded "${record.Name}" from bundled dump (${bytes.length} bytes)`
++          );
++          return true;
++        }
++        lazy.log.warn(
++          `Dump size mismatch for "${record.Name}": got ${bytes.length}, expected ${record.attachment.size}`
++        );
++      }
++    } catch (e) {
++      lazy.log.debug(
++        `Direct dump read failed for "${record.Name}", falling back to RS download: ${e}`
++      );
++    }
++
+     try {
+       let result = await this.#rs.attachments.download(record, {
+         fallbackToCache: true,
+diff -ruN a/toolkit/components/content-classifier/ContentClassifierService.cpp b/toolkit/components/content-classifier/ContentClassifierService.cpp
+--- a/toolkit/components/content-classifier/ContentClassifierService.cpp
++++ b/toolkit/components/content-classifier/ContentClassifierService.cpp
+@@ -475,6 +475,17 @@
+     const ContentClassifierRequest& aRequest) {
+   MutexAutoLock lock(mLock);
+   ContentClassifierResult result = ClassifyWithEngines(mBlockEngines, aRequest);
++  // Neonwolf: tally network blocks per top-level page site so the per-site
++  // Shields panel can show a real "requests blocked" count (uBO-style badge).
++  // Keyed by the source page's schemeless site so the count reflects the page
++  // the user is on, not the blocked resource's host. Runs under mLock, which
++  // also guards mBlockedCounts.
++  if (result.Hit()) {
++    const nsCString& site = aRequest.SourceSite();
++    if (!site.IsEmpty()) {
++      mBlockedCounts.InsertOrUpdate(site, mBlockedCounts.Get(site) + 1);
++    }
++  }
+   MOZ_LOG(gContentClassifierLog, LogLevel::Debug,
+           ("ClassifyForCancel - url=%s hit=%d exception=%d",
+            aRequest.Url().get(), result.Hit(), result.Exception()));
+@@ -702,6 +713,16 @@
+   return NS_OK;
+ }
+ 
++// Neonwolf: return the session-cumulative number of network requests blocked
++// for aTopSite (keyed by the page's schemeless site; see ClassifyForCancel).
++NS_IMETHODIMP ContentClassifierService::GetBlockedCount(
++    const nsACString& aTopSite, uint32_t* aRetVal) {
++  NS_ENSURE_ARG_POINTER(aRetVal);
++  MutexAutoLock lock(mLock);
++  *aRetVal = mBlockedCounts.Get(nsCString(aTopSite));
++  return NS_OK;
++}
++
+ // Parses a byte buffer of adblock-format filter list text into rules.
+ // Tolerates both LF and CRLF line endings; skips empty lines.
+ static void ParseFilterListRules(const nsTArray<uint8_t>& aData,
+diff -ruN a/toolkit/components/content-classifier/ContentClassifierService.h b/toolkit/components/content-classifier/ContentClassifierService.h
+--- a/toolkit/components/content-classifier/ContentClassifierService.h
++++ b/toolkit/components/content-classifier/ContentClassifierService.h
+@@ -96,6 +96,12 @@
+   nsTHashMap<nsCStringHashKey, nsTArray<uint8_t>> mFilterListData
+       MOZ_GUARDED_BY(mLock);
+ 
++  // Neonwolf: per-top-level-site count of network requests blocked
++  // (ClassifyForCancel hits) this session, surfaced via getBlockedCount() in
++  // the Shields panel. Keyed by the source page's schemeless site (the loading
++  // principal's base domain). Cumulative per origin for the session; not reset.
++  nsTHashMap<nsCStringHashKey, uint32_t> mBlockedCounts MOZ_GUARDED_BY(mLock);
++
+   // Cached scriptlet/redirect resource bundle JSON (see
+   // EnsureResourceBundleLoaded). Empty when the bundle file is absent.
+   nsCString mResourceBundle MOZ_GUARDED_BY(mLock);
+diff -ruN a/toolkit/components/content-classifier/nsIContentClassifierService.idl b/toolkit/components/content-classifier/nsIContentClassifierService.idl
+--- a/toolkit/components/content-classifier/nsIContentClassifierService.idl
++++ b/toolkit/components/content-classifier/nsIContentClassifierService.idl
+@@ -8,7 +8,7 @@
+  * Interface for the content classifier service, allowing JS code to
+  * provide filter list data (e.g. from RemoteSettings).
+  */
+-[scriptable, uuid(2f9a4c11-5d2e-4b6c-9a3f-7e1c8d05a6b2)]
++[scriptable, uuid(2f9a4c11-5d2e-4b6c-9a3f-7e1c8d05a6b3)]
+ interface nsIContentClassifierService : nsISupports {
+     /**
+      * Store filter list data for a named list. The data is the raw
+@@ -62,6 +62,16 @@
+      * resource bundle was loaded, or no scriptlets apply to aUrl.
+      */
+     AUTF8String getInjectedScript(in AUTF8String aUrl);
++
++    /**
++     * Neonwolf: number of network requests blocked (ClassifyForCancel hits)
++     * for the given top-level site during this browser session. The key is the
++     * top-level page's schemeless site - i.e. the loading principal's base
++     * domain (eTLD+1), matching nsIPrincipal.baseDomain on the JS side. Counts
++     * are cumulative per origin for the session and are never reset (v1).
++     * Returns 0 for an unknown site.
++     */
++    unsigned long getBlockedCount(in AUTF8String aTopSite);
+ };
+ 
+ %{C++
+diff -ruN a/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h b/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h
+--- a/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h
++++ b/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h
+@@ -60,6 +60,10 @@
+  public:
+   bool Valid() const { return mValid; }
+   const nsCString& Url() const { return mUrl; }
++  // Neonwolf: schemeless site of the top-level page that triggered this
++  // request (the loading principal's base domain). Used to key the per-site
++  // blocked-request count surfaced in the Shields panel.
++  const nsCString& SourceSite() const { return mSourceSchemelessSite; }
+ 
+   explicit ContentClassifierRequest(nsIChannel* aChannel);
+ };
+diff -ruN a/netwerk/url-classifier/AsyncUrlChannelClassifier.cpp b/netwerk/url-classifier/AsyncUrlChannelClassifier.cpp
+--- a/netwerk/url-classifier/AsyncUrlChannelClassifier.cpp
++++ b/netwerk/url-classifier/AsyncUrlChannelClassifier.cpp
+@@ -1095,11 +1095,18 @@
+ 
+         if (contentClassifier && contentClassifier->IsInitialized() &&
+             contentClassifierRequest.isSome()) {
+-          if (aPerformBlocking) {
+-            ContentClassifierResult cancelResult =
+-                contentClassifier->ClassifyForCancel(*contentClassifierRequest);
+-            shouldCancel = cancelResult.Hit();
+-          }
++          // Neonwolf: the native content-classifier has its OWN block lists and
++          // is authoritative for ad/tracker blocking, so it always runs its
++          // cancel classification -- it is deliberately NOT gated on Firefox's
++          // tracking-protection blocking decision (aPerformBlocking). The only
++          // entry point that reaches the content-classifier in practice is the
++          // response-phase CheckChannelBeforeProcessResponse, which passes
++          // aPerformBlocking=false; gating on it meant native network blocking
++          // never ran at all (cosmetic worked, network did not). Shields-down
++          // is already honored upstream (the request is not built when down).
++          ContentClassifierResult cancelResult =
++              contentClassifier->ClassifyForCancel(*contentClassifierRequest);
++          shouldCancel = cancelResult.Hit();
+           if (aPerformAnnotations) {
+             ContentClassifierResult annotateResult =
+                 contentClassifier->ClassifyForAnnotate(
