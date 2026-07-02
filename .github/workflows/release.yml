@@ -1,0 +1,355 @@
+name: release-builds
+
+# Builds Neonwolf for Linux / macOS / Windows on native GitHub runners and
+# attaches the artifacts to a DRAFT GitHub Release for manual functional testing.
+#
+# Design: the patched Neonwolf source tree is platform-independent, so we build
+# it ONCE on Linux (`make fetch && make dir && make all`), publish it as an
+# artifact, and each OS job just unpacks it and runs `./mach build && package`.
+# This avoids running the Linux-centric patch pipeline on macOS/Windows.
+#
+# Manual-dispatch only (no auto-trigger) because each Firefox build is multi-hour
+# and macOS/Windows runner minutes are billed. Toggle platforms per run so you
+# can validate Linux cheaply before spending Win/Mac minutes.
+#
+# NOTE: the first real run of this workflow WILL need babysitting — native
+# Firefox builds on hosted runners are sensitive to disk space (Linux),
+# MozillaBuild setup (Windows) and toolchain bootstrap. Treat it as iterative.
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_linux:
+        description: "Build Linux (tar.xz + AppImage)"
+        type: boolean
+        default: true
+      build_macos:
+        description: "Build macOS (.dmg) — billed 10x"
+        type: boolean
+        default: false
+      build_windows:
+        description: "Build Windows (installer + zip) — billed"
+        type: boolean
+        default: false
+      draft:
+        description: "Publish as a draft release"
+        type: boolean
+        default: true
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Produce the patched Neonwolf source tree (platform-independent).
+  # ---------------------------------------------------------------------------
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      release: ${{ steps.ver.outputs.release }}
+      tarball: ${{ steps.pack.outputs.tarball }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - id: ver
+        run: |
+          echo "version=$(cat version)" >> "$GITHUB_OUTPUT"
+          echo "release=$(cat release)" >> "$GITHUB_OUTPUT"
+
+      - name: Install source-prep deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl gnupg pigz python3 patch tar xz-utils
+
+      # Cache the (large) upstream Firefox tarball across runs, keyed on version.
+      - name: Cache Firefox source tarball
+        uses: actions/cache@v4
+        with:
+          path: firefox-${{ steps.ver.outputs.version }}.source.tar.xz
+          key: ff-src-${{ steps.ver.outputs.version }}
+
+      - name: Fetch + patch (make dir) and pack source
+        id: pack
+        run: |
+          set -euo pipefail
+          make fetch
+          make dir
+          make all
+          tarball="neonwolf-$(cat version)-$(cat release).source.tar.gz"
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+          ls -lh "$tarball"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: neonwolf-source
+          path: |
+            neonwolf-*.source.tar.gz
+            neonwolf-*.source.tar.gz.sha256sum
+          retention-days: 5
+
+  # ---------------------------------------------------------------------------
+  # 2. Linux: build + package + AppImage.
+  # ---------------------------------------------------------------------------
+  linux:
+    needs: source
+    if: ${{ github.event_name == 'push' || inputs.build_linux }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Free up disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          large-packages: true
+          docker-images: true
+          # Keep the runner's swap — a parallel Firefox/Rust build on a 16 GB
+          # runner gets OOM-killed (exit 143) without a memory cushion.
+          swap-storage: false
+
+      # Extra swap headroom on the large ephemeral disk so peak memory during
+      # Rust codegen / the libxul link can't trigger the OOM killer.
+      - name: Add swap headroom
+        run: |
+          sudo fallocate -l 12G /mnt/swapfile-extra
+          sudo chmod 600 /mnt/swapfile-extra
+          sudo mkswap /mnt/swapfile-extra
+          sudo swapon /mnt/swapfile-extra
+          free -h
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: neonwolf-source
+
+      - name: Unpack source tree
+        run: tar xf neonwolf-*.source.tar.gz
+
+      - name: Bootstrap build environment
+        run: |
+          set -euo pipefail
+          TREE="neonwolf-$(cat version)-$(cat release)"
+          export MOZBUILD_STATE_PATH="$HOME/.mozbuild"
+          (cd "$TREE" && ./mach --no-interactive bootstrap --application-choice=browser)
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          TREE="neonwolf-$(cat version)-$(cat release)"
+          (cd "$TREE" && ./mach build)
+
+      - name: Package (tar.xz)
+        id: pkg
+        run: |
+          set -euo pipefail
+          TREE="neonwolf-$(cat version)-$(cat release)"
+          (cd "$TREE" && ./mach package)
+          pkg="$(ls "$TREE"/obj-*/dist/neonwolf-*.en-US.linux-x86_64.tar.xz | head -n1)"
+          cp -v "$pkg" .
+          echo "pkg=$(basename "$pkg")" >> "$GITHUB_OUTPUT"
+
+      - name: Build AppImage
+        run: scripts/make-appimage.sh "${{ steps.pkg.outputs.pkg }}" Neonwolf-x86_64.AppImage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: neonwolf-linux
+          path: |
+            neonwolf-*.en-US.linux-x86_64.tar.xz
+            Neonwolf-x86_64.AppImage
+          retention-days: 5
+
+  # ---------------------------------------------------------------------------
+  # 3. macOS (Apple Silicon): build + .dmg.  Native SDK avoids the cross-compile
+  #    Apple-SDK redistribution problem.
+  # ---------------------------------------------------------------------------
+  macos:
+    needs: source
+    if: ${{ inputs.build_macos }}
+    # macos-15 carries newer Xcode; Firefox 152 requires the macOS 26.4+ SDK
+    # (macos-14's Xcode 15.4 only ships SDK 14.5, which configure rejects).
+    runs-on: macos-15
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: neonwolf-source
+
+      - name: Unpack source tree
+        run: tar xf neonwolf-*.source.tar.gz
+
+      # Select the newest installed Xcode and report its SDK version up front, so
+      # if it's still below the 26.4 floor we learn the ceiling without a 2nd run.
+      - name: Select newest Xcode + report SDK
+        run: |
+          set -euo pipefail
+          ls -d /Applications/Xcode*.app
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          xcodebuild -version
+          echo "SDK version: $(xcrun --show-sdk-version)"
+          echo "SDK path:    $(xcrun --show-sdk-path)"
+
+      - name: Install build deps
+        run: brew install yasm
+
+      # We deliberately do NOT run `./mach bootstrap`: its sccache dist-toolchain
+      # fetch (ensure_sccache_packages) hits a 403 on Mozilla-restricted artifacts
+      # even on a native runner. Instead we point at the runner's own Xcode SDK and
+      # let `--enable-bootstrap` (already in the mozconfig) fetch the *public*
+      # clang/cbindgen/nasm/node toolchains during the build itself.
+      - name: Build + package (.dmg)
+        run: |
+          set -euo pipefail
+          TREE="neonwolf-$(cat version)-$(cat release)"
+          export MOZBUILD_STATE_PATH="$HOME/.mozbuild"
+          echo "ac_add_options --with-macos-sdk=$(xcrun --show-sdk-path)" >> "$TREE/mozconfig"
+          (cd "$TREE" && ./mach build && ./mach package)
+          dmg="$(ls "$TREE"/obj-*/dist/neonwolf-*.dmg | head -n1)"
+          cp -v "$dmg" "Neonwolf-$(cat version)-$(cat release).macos-aarch64.dmg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: neonwolf-macos
+          path: Neonwolf-*.macos-aarch64.dmg
+          retention-days: 5
+
+  # ---------------------------------------------------------------------------
+  # 4. Windows: build + installer.  Runs inside the MozillaBuild shell.
+  # ---------------------------------------------------------------------------
+  windows:
+    needs: source
+    if: ${{ inputs.build_windows }}
+    runs-on: windows-2022
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      # The runner's default pagefile is too small for Firefox's heavy unified
+      # C++ TUs and the giant gkrust compile (16 GB RAM alone OOMs: "paging file
+      # is too small", "rustc-LLVM out of memory"). Give it a large pagefile.
+      - name: Enlarge pagefile
+        uses: al-cheb/configure-pagefile-action@v1.4
+        with:
+          minimum-size: 16GB
+          maximum-size: 24GB
+          disk-root: "C:"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: neonwolf-source
+
+      - name: Install MozillaBuild
+        shell: pwsh
+        run: |
+          $url = "https://ftp.mozilla.org/pub/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe"
+          Invoke-WebRequest -Uri $url -OutFile MozillaBuildSetup.exe
+          Start-Process -Wait -FilePath .\MozillaBuildSetup.exe -ArgumentList "/S"
+
+      - name: Unpack source tree
+        run: tar xf neonwolf-*.source.tar.gz
+
+      # The shared mozconfig sets `--with-l10n-base=$PWD/lw/l10n`. Inside
+      # MozillaBuild $PWD is an MSYS path (/d/a/...), which configure's native
+      # Windows Python can't resolve ("doesn't exist"). Rewrite that line to a
+      # Windows path. Also create the dir: Windows MAX_PATH drops the deep l10n
+      # tree on extraction, and an en-US build doesn't need its content — configure
+      # only checks that the path exists.
+      - name: Rewrite l10n-base to a Windows path
+        run: |
+          set -euo pipefail
+          TREE="neonwolf-$(cat version)-$(cat release)"
+          mkdir -p "$TREE/lw/l10n"
+          WS="${GITHUB_WORKSPACE//\\//}"   # D:\a\... -> D:/a/...
+          sed -i "s#--with-l10n-base=.*#--with-l10n-base=$WS/$TREE/lw/l10n#" "$TREE/mozconfig"
+          grep with-l10n-base "$TREE/mozconfig"
+
+      # Run mach inside MozillaBuild's own bash (login shell sets up the build
+      # env). `start-shell.bat -c` is a no-op — invoke the msys2 bash directly.
+      # MOZILLABUILD must be set BEFORE the login shell runs, or its profile won't
+      # add MozillaBuild's python3 to PATH (mach's `#!/usr/bin/env python3` then
+      # fails with exit 127). No `./mach bootstrap`: `--enable-bootstrap` (in the
+      # mozconfig) fetches the public toolchains during the build, and the runner
+      # already ships VS2022. cmd keeps the whole bash arg as one token
+      # (double-quoted); inside we avoid double quotes and translate the workspace
+      # path with cygpath. `&&` and `()` are protected by the surrounding quotes.
+      - name: Build + package (inside MozillaBuild)
+        shell: cmd
+        run: |
+          set MOZILLABUILD=C:\mozilla-build\
+          C:\mozilla-build\msys2\usr\bin\bash -lc "cd $(cygpath -u $GITHUB_WORKSPACE) && cd neonwolf-$(cat version)-$(cat release) && export MOZBUILD_STATE_PATH=/c/mozilla-build/state && ./mach build && ./mach package && ./mach repackage installer"
+
+      - name: Collect artifacts
+        run: |
+          set -euo pipefail
+          TREE="neonwolf-$(cat version)-$(cat release)"
+          mkdir -p out
+          cp -v "$TREE"/obj-*/dist/neonwolf-*.en-US.win64.zip "out/" || true
+          cp -v "$TREE"/obj-*/dist/install/sea/*.installer.exe "out/Neonwolf-$(cat version)-$(cat release).win64.installer.exe" || true
+          ls -lh out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: neonwolf-windows
+          path: out/*
+          retention-days: 5
+
+  # ---------------------------------------------------------------------------
+  # 5. Assemble a draft GitHub Release from whatever built.
+  # ---------------------------------------------------------------------------
+  release:
+    needs: [source, linux, macos, windows]
+    # Only assemble a release if at least one platform actually produced a build,
+    # so a failed build can't leave an empty draft behind.
+    if: ${{ always() && !cancelled() && (needs.linux.result == 'success' || needs.macos.result == 'success' || needs.windows.result == 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List collected artifacts
+        run: find dist -type f -printf '%s\t%p\n' | sort
+
+      - name: Create / update draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'push' && github.ref_name || format('v{0}-{1}', needs.source.outputs.version, needs.source.outputs.release) }}
+          name: Neonwolf ${{ needs.source.outputs.version }}-${{ needs.source.outputs.release }}
+          draft: ${{ github.event_name == 'push' || inputs.draft }}
+          prerelease: true
+          fail_on_unmatched_files: false
+          body: |
+            Test build of Neonwolf ${{ needs.source.outputs.version }}-${{ needs.source.outputs.release }} for basic functional testing.
+
+            **Unsigned** builds — expect Gatekeeper (macOS) / SmartScreen (Windows) warnings.
+
+            | Platform | Artifact |
+            |----------|----------|
+            | Linux    | `Neonwolf-x86_64.AppImage`, `*.linux-x86_64.tar.xz` |
+            | macOS    | `*.macos-aarch64.dmg` (Apple Silicon) |
+            | Windows  | `*.win64.installer.exe`, `*.win64.zip` |
+          files: |
+            dist/**/*.AppImage
+            dist/**/*.tar.xz
+            dist/**/*.dmg
+            dist/**/*.exe
+            dist/**/*.zip

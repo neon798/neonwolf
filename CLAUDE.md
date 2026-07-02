@@ -195,7 +195,11 @@ fetches the **pinned** Firefox source (`./version`) and runs `make dir` —
 validating that all patches + the Neonwolf delta (pref-pane patch, fail-loud
 theme injections, settings overlay, l10n) apply cleanly. It does **not** compile
 (too heavy for hosted runners); `make check-patchfail` is the equivalent local
-check. The **`.forgejo/workflows/`** are inherited upstream LibreWolf config —
+check. A second workflow, **`.github/workflows/release-builds.yml`**, *does*
+compile: on manual dispatch (per-platform toggles) or a `v*` tag it builds
+Neonwolf for Linux/macOS/Windows on native runners and attaches the artifacts
+(AppImage + tar.xz, `.dmg`, installer + zip) to a **draft** GitHub Release. See
+`docs/RELEASE.md`. The **`.forgejo/workflows/`** are inherited upstream LibreWolf config —
 they only run on Codeberg/Forgejo, still reference `librewolf-*` artifacts and
 `detect-firefox-version.sh` (track-latest-stable), and are left **dormant and
 untouched** so upstream merges stay clean. Only adapt them if mirroring to
