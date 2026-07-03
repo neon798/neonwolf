@@ -100,7 +100,7 @@ def main(assets_dir, tree):
     print("gen-adblock-dump: packaged %d lists into %s" % (len(records), COLLECTION))
 
     # M2 scriptlet/redirect resource bundle (assets/ubo-resources.json, vendored
-    # by scripts/fetch-ubo-resources.py). Optional: if absent, scriptlet injection
+    # by scripts/vendor-ubo/run.sh). Optional: if absent, scriptlet injection
     # gracefully degrades to empty. Packages to <GreD>/browser/defaults/settings/
     # ubo-resources.json, where ContentClassifierService reads it.
     _package_resource_bundle(assets_dir, main_dir)
