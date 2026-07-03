@@ -1,13 +1,21 @@
 # Neonwolf
 
-**Neonwolf** is a synthwave-themed, privacy-focused fork of Firefox, built as a
-**thin overlay on [LibreWolf](https://librewolf.net)**. It takes a stock Firefox
-release, runs LibreWolf's privacy/hardening patch pipeline, and layers on a small,
-clearly-marked Neonwolf delta — a synthwave chrome theme, a glowing new-tab page,
-and Neonwolf branding — to produce the Neonwolf browser.
+**Neonwolf** is a synthwave-themed, privacy-focused fork of Firefox. It inherits
+[LibreWolf](https://librewolf.net)'s privacy/hardening baseline, then builds
+**owned native features on top** — headlined by **uBlock Origin's actual engine
+adapted to run as native browser code, not an extension**. Blocking ads and
+trackers natively means there is no extension flag, no web-accessible resources
+and no content-script signatures for sites to fingerprint — the browser presents
+like itself, not "Firefox + a detectable content blocker." On top of that sit a
+synthwave chrome theme, a glowing new-tab page, and Neonwolf branding.
 
-Current base: **Firefox 152.0.1** (LibreWolf 152). Linux x86-64 is the supported
-and tested target.
+Neonwolf is a **capability-first heavy fork**, **not** a thin theme-and-branding
+overlay: it inherits LibreWolf's hardening for free, but owned native features
+take priority over merge convenience — delta size is not a constraint.
+
+Current base: **Firefox 152.0.1** (LibreWolf 152). Linux x86-64 is the primary,
+best-tested target; Windows builds are produced as drafts (see the Releases
+page).
 
 > This is a **patch-distribution repository**, not a copy of the browser source.
 > It holds patches, branding, theme CSS, build config, and a Python orchestrator;
@@ -19,7 +27,7 @@ and tested target.
 graph LR
     FF(Firefox 152.0.1<br>source tarball)
     LW(LibreWolf patches<br>+ settings submodule)
-    NW(Neonwolf delta<br>theme · branding · pref overrides)
+    NW(Neonwolf native delta<br>uBO adblock engine · Shields · theme · branding)
     OUT(Neonwolf browser)
     FF --> LW --> NW --> OUT
 ```
@@ -28,11 +36,12 @@ The privacy/hardening baseline comes from the
 [LibreWolf settings](https://codeberg.org/librewolf/settings) repo, tracked here
 as the `settings/` git submodule. Neonwolf is a **capability-first heavy fork**:
 it inherits LibreWolf's hardening for free, but **owned native features take
-priority over merge convenience** — delta size is not a constraint. The deferred
-native work (uBO-parity blocking, anti-fingerprint farbling, a per-site Shields
-panel, binary-level surface stripping) is the product, not a footnote. We still
-rebase onto LibreWolf each release to keep its fixes, accepting a heavier rebase;
-the procedure lives in [`docs/REBASE.md`](docs/REBASE.md) and the roadmap in
+priority over merge convenience** — delta size is not a constraint. The native
+work is the product, not a footnote: uBlock Origin's real network + cosmetic
+engine now run natively (shipped), with a per-site Shields panel, and
+anti-fingerprint farbling and binary-level surface stripping on the roadmap. We
+still rebase onto LibreWolf each release to keep its fixes, accepting a heavier
+rebase; the procedure lives in [`docs/REBASE.md`](docs/REBASE.md) and the roadmap in
 [`PLAN_OF_ACTION.md`](PLAN_OF_ACTION.md).
 
 ## Download
@@ -42,8 +51,8 @@ Prebuilt Linux x86-64 builds are published on the
 a `.tar.xz` and a matching `.sha256sum`.
 
 ```sh
-sha256sum -c neonwolf-152.0.1-1.en-US.linux-x86_64.tar.xz.sha256sum
-tar xf neonwolf-152.0.1-1.en-US.linux-x86_64.tar.xz
+sha256sum -c neonwolf-152.0.1-3.en-US.linux-x86_64.tar.xz.sha256sum
+tar xf neonwolf-152.0.1-3.en-US.linux-x86_64.tar.xz
 LANG=en_US.UTF-8 MOZ_ENABLE_WAYLAND=1 ./neonwolf/neonwolf
 ```
 
@@ -53,7 +62,7 @@ fallback.)
 ## Build from this repository
 
 All targets go through `make`. Version is read from `./version` (`152.0.1`),
-release from `./release` (`1`).
+release from `./release` (`3`).
 
 ```sh
 git clone --recursive https://github.com/neon798/neonwolf.git
@@ -69,8 +78,8 @@ make run          # build and launch
 ```
 
 The patched tree is extracted to `neonwolf-{version}-{release}/`
-(e.g. `neonwolf-152.0.1-1/`); the built binary lands at
-`neonwolf-152.0.1-1/obj-x86_64-pc-linux-gnu/dist/bin/neonwolf`.
+(e.g. `neonwolf-152.0.1-3/`); the built binary lands at
+`neonwolf-152.0.1-3/obj-x86_64-pc-linux-gnu/dist/bin/neonwolf`.
 
 > **Resuming an interrupted build:** run `./mach build` **inside** the source
 > tree, not `make build` — `make build` may re-extract and re-patch from scratch,
@@ -110,10 +119,18 @@ never reorder without re-running `make check-patchfail`.
 Neonwolf stands entirely on the work of others:
 
 - **[LibreWolf](https://librewolf.net)** — the privacy/hardening patch set, build
-  pipeline, and settings this overlay is built on.
+  pipeline, and settings Neonwolf is built on.
+- **[uBlock Origin](https://github.com/gorhill/uBlock)** by Raymond Hill — the
+  ad/tracker blocking engine. Neonwolf runs uBO's **actual engine code**
+  natively; **powered by uBlock**.
 - **[Mozilla Firefox](https://www.mozilla.org/firefox/)** — the underlying browser.
 
 ## License
 
-Like Firefox and LibreWolf, Neonwolf is distributed under the
-[Mozilla Public License 2.0](LICENSE).
+Neonwolf as a whole is distributed under the
+[Mozilla Public License 2.0](LICENSE), like Firefox and LibreWolf. The bundled
+uBlock Origin engine components (`toolkit/components/content-classifier/UBO*.sys.mjs`
+and the `patches/native/native-ubo-*` sources they are generated from) are
+uBlock Origin's own code and remain under the **GNU General Public License
+v3.0-or-later**; their corresponding source is available in this repository and
+via `scripts/vendor-ubo/`.
