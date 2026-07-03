@@ -242,6 +242,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Firefox's Windows build blows past the 260-char MAX_PATH: deep libwebrtc
+      # dirs (e.g. goog_cc_scream_network_controller) under the obj tree produce
+      # Unified_cpp object paths that get silently truncated ("No rule to make
+      # target ...Unified_cpp_etwork_controller_gn0.obj"). Enable OS + git long
+      # paths (belt) AND build from a short root C:\b (braces, below) so paths
+      # stay short.
+      - name: Enable Windows long paths
+        shell: pwsh
+        run: |
+          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Value 1 -Type DWord
+          git config --system core.longpaths true
+          Write-Host "LongPathsEnabled = $((Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem').LongPathsEnabled)"
+
       # The runner's default pagefile is too small for Firefox's heavy unified
       # C++ TUs and the giant gkrust compile (16 GB RAM alone OOMs: "paging file
       # is too small", "rustc-LLVM out of memory"). Give it a large pagefile.
@@ -263,23 +276,28 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile MozillaBuildSetup.exe
           Start-Process -Wait -FilePath .\MozillaBuildSetup.exe -ArgumentList "/S"
 
-      - name: Unpack source tree
-        run: tar xf neonwolf-*.source.tar.gz
+      # Unpack the source tree into a SHORT root (C:\b) with --strip-components=1
+      # so the build root is C:\b\... instead of the deep
+      # D:\a\neonwolf\neonwolf\neonwolf-<ver>-<rel>\... GITHUB_WORKSPACE path.
+      # This is what keeps the libwebrtc Unified_cpp object paths under MAX_PATH.
+      - name: Unpack source tree into a short root
+        run: |
+          set -euo pipefail
+          mkdir -p /c/b
+          tar -C /c/b --strip-components=1 -xf neonwolf-*.source.tar.gz
+          ls /c/b/mozconfig
 
       # The shared mozconfig sets `--with-l10n-base=$PWD/lw/l10n`. Inside
       # MozillaBuild $PWD is an MSYS path (/d/a/...), which configure's native
-      # Windows Python can't resolve ("doesn't exist"). Rewrite that line to a
-      # Windows path. Also create the dir: Windows MAX_PATH drops the deep l10n
-      # tree on extraction, and an en-US build doesn't need its content — configure
-      # only checks that the path exists.
-      - name: Rewrite l10n-base to a Windows path
+      # Windows Python can't resolve ("doesn't exist"). Rewrite that line to the
+      # short Windows path. Also create the dir: an en-US build doesn't need its
+      # content — configure only checks that the path exists.
+      - name: Rewrite l10n-base to the short build path
         run: |
           set -euo pipefail
-          TREE="neonwolf-$(cat version)-$(cat release)"
-          mkdir -p "$TREE/lw/l10n"
-          WS="${GITHUB_WORKSPACE//\\//}"   # D:\a\... -> D:/a/...
-          sed -i "s#--with-l10n-base=.*#--with-l10n-base=$WS/$TREE/lw/l10n#" "$TREE/mozconfig"
-          grep with-l10n-base "$TREE/mozconfig"
+          mkdir -p /c/b/lw/l10n
+          sed -i "s#--with-l10n-base=.*#--with-l10n-base=C:/b/lw/l10n#" /c/b/mozconfig
+          grep with-l10n-base /c/b/mozconfig
 
       # Run mach inside MozillaBuild's own bash (login shell sets up the build
       # env). `start-shell.bat -c` is a no-op — invoke the msys2 bash directly.
@@ -287,22 +305,19 @@ jobs:
       # add MozillaBuild's python3 to PATH (mach's `#!/usr/bin/env python3` then
       # fails with exit 127). No `./mach bootstrap`: `--enable-bootstrap` (in the
       # mozconfig) fetches the public toolchains during the build, and the runner
-      # already ships VS2022. cmd keeps the whole bash arg as one token
-      # (double-quoted); inside we avoid double quotes and translate the workspace
-      # path with cygpath. `&&` and `()` are protected by the surrounding quotes.
+      # already ships VS2022. Build from the short root C:\b (/c/b in MSYS).
       - name: Build + package (inside MozillaBuild)
         shell: cmd
         run: |
           set MOZILLABUILD=C:\mozilla-build\
-          C:\mozilla-build\msys2\usr\bin\bash -lc "cd $(cygpath -u $GITHUB_WORKSPACE) && cd neonwolf-$(cat version)-$(cat release) && export MOZBUILD_STATE_PATH=/c/mozilla-build/state && ./mach build && ./mach package && ./mach repackage installer"
+          C:\mozilla-build\msys2\usr\bin\bash -lc "cd /c/b && export MOZBUILD_STATE_PATH=/c/mozilla-build/state && ./mach build && ./mach package && ./mach repackage installer"
 
       - name: Collect artifacts
         run: |
           set -euo pipefail
-          TREE="neonwolf-$(cat version)-$(cat release)"
           mkdir -p out
-          cp -v "$TREE"/obj-*/dist/neonwolf-*.en-US.win64.zip "out/" || true
-          cp -v "$TREE"/obj-*/dist/install/sea/*.installer.exe "out/Neonwolf-$(cat version)-$(cat release).win64.installer.exe" || true
+          cp -v /c/b/obj-*/dist/neonwolf-*.en-US.win64.zip "out/" || true
+          cp -v /c/b/obj-*/dist/install/sea/*.installer.exe "out/Neonwolf-$(cat version)-$(cat release).win64.installer.exe" || true
           ls -lh out
 
       - uses: actions/upload-artifact@v4
