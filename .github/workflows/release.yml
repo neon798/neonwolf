@@ -310,14 +310,14 @@ jobs:
         shell: cmd
         run: |
           set MOZILLABUILD=C:\mozilla-build\
-          C:\mozilla-build\msys2\usr\bin\bash -lc "cd /c/b && export MOZBUILD_STATE_PATH=/c/mozilla-build/state && ./mach build && ./mach package && ./mach repackage installer"
+          C:\mozilla-build\msys2\usr\bin\bash -lc "cd /c/b && export MOZBUILD_STATE_PATH=/c/mozilla-build/state && ./mach build && ./mach package && ./mach build installer"
 
       - name: Collect artifacts
         run: |
           set -euo pipefail
           mkdir -p out
-          cp -v /c/b/obj-*/dist/neonwolf-*.en-US.win64.zip "out/" || true
-          cp -v /c/b/obj-*/dist/install/sea/*.installer.exe "out/Neonwolf-$(cat version)-$(cat release).win64.installer.exe" || true
+          cp -v /c/b/obj-*/dist/neonwolf-*.en-US.win64.zip "out/"
+          cp -v /c/b/obj-*/dist/install/sea/*.installer.exe "out/Neonwolf-$(cat version)-$(cat release).win64.installer.exe"
           ls -lh out
 
       - uses: actions/upload-artifact@v4
