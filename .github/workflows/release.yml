@@ -307,24 +307,39 @@ jobs:
       # mozconfig) fetches the public toolchains during the build, and the runner
       # already ships VS2022. Build from the short root C:\b (/c/b in MSYS).
       #
-      # NSIS installer: FF152's top-level make has no `installer` target
-      # (`mach build installer` fails with "No rule to make target") and
-      # `mach repackage installer` is release-automation-only (requires
-      # --tag/--setupexe/...). The target lives in the objdir's
-      # browser/installer Makefile — invoke it there with mozmake, exactly like
-      # Mozilla release automation (`make -C browser/installer installer`).
+      # NSIS installer: `./mach package` on this config ALREADY recurses through
+      # browser/installer and browser/installer/windows and emits setup.exe --
+      # no separate installer step is needed. The earlier attempts to add one
+      # (`mach build installer`, `mach repackage installer`, a bare
+      # `mozmake -C browser/installer installer`) all failed because `installer`
+      # is not a standalone target here; the collect step below just locates the
+      # setup.exe that package produced.
       - name: Build + package (inside MozillaBuild)
         shell: cmd
         run: |
           set MOZILLABUILD=C:\mozilla-build\
-          C:\mozilla-build\msys2\usr\bin\bash -lc "cd /c/b && export MOZBUILD_STATE_PATH=/c/mozilla-build/state && ./mach build && ./mach package && /c/mozilla-build/state/mozmake/mozmake.exe -C obj-*/browser/installer installer"
+          C:\mozilla-build\msys2\usr\bin\bash -lc "cd /c/b && export MOZBUILD_STATE_PATH=/c/mozilla-build/state && ./mach build && ./mach package"
 
       - name: Collect artifacts
         run: |
           set -euo pipefail
           mkdir -p out
           cp -v /c/b/obj-*/dist/neonwolf-*.en-US.win64.zip "out/"
-          cp -v /c/b/obj-*/dist/install/sea/*.installer.exe "out/Neonwolf-$(cat version)-$(cat release).win64.installer.exe"
+          # `mach package` writes the NSIS installer to instgen/setup.exe; some
+          # configs also emit dist/install/sea/*.installer.exe. Prefer the sea
+          # artifact, fall back to instgen, and fail loudly if neither exists so
+          # a release can't ship without an installer.
+          dest="out/Neonwolf-$(cat version)-$(cat release).win64.installer.exe"
+          sea="$(ls /c/b/obj-*/dist/install/sea/*.installer.exe 2>/dev/null | head -n1 || true)"
+          instgen="$(ls /c/b/obj-*/browser/installer/windows/instgen/setup.exe 2>/dev/null | head -n1 || true)"
+          if [ -n "$sea" ]; then
+            cp -v "$sea" "$dest"
+          elif [ -n "$instgen" ]; then
+            cp -v "$instgen" "$dest"
+          else
+            echo "::error::no Windows installer produced (checked dist/install/sea and instgen/setup.exe)"
+            exit 1
+          fi
           ls -lh out
 
       - uses: actions/upload-artifact@v4
