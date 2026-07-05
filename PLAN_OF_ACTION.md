@@ -69,12 +69,22 @@ Progress:
   The LibreWolf policy force-installing the uBO *extension* was removed from
   the policy merge — it had been silently double-blocking in every online GUI
   session. Patch: `patches/native/native-ubo-snfe.patch`.
-- **uBO-M2 (next):** serve uBO's real cosmetic + scriptlet engines
-  (`cosmetic-filtering.js`, `scriptlet-filtering-core.js`) through the existing
-  `CosmeticFilter` actor, replacing the adblock-rust cosmetic queries.
-- **uBO-M3:** `$redirect` / procedural / dynamic filtering from the uBO engine.
-- **uBO-M4:** Shields UI drives the native uBO engine directly ("powered by
-  uBlock").
+- **uBO-M2 (DONE 2026-07-02):** uBO's real cosmetic engine
+  (`cosmetic-filtering.js`) serves specific + generic (hash-surveyed) hide CSS
+  and procedural filters through the `CosmeticFilter` actor
+  (`UBOCosmeticFilter.sys.mjs` + `UBOCosmetic.sys.mjs` bundle); the
+  adblock-rust cosmetic path remains the pref-gated fallback. uBO scriptlets
+  are bundled but **held off** (`privacy.trackingprotection.ubo.scriptlet.enabled=false`)
+  pending a document_start race fix — scriptlets still ride the adblock-rust
+  path. Patch: `patches/native/native-ubo-cosmetic.patch`.
+- **uBO-M3:** `$redirect` / `$csp` / domCollapser / dynamic filtering from the
+  uBO engine; safe live list refresh; d3ward >95% GUI validation.
+- **uBO-M4 (IN PROGRESS 2026-07-03):** Shields UI drives the native uBO engine
+  directly ("powered by uBlock"): per-site master toggle (permission) wired to
+  both engines; global category toggles mapped to the real enforcement prefs
+  with a live network kill-switch; urlbar blocked-count badge + tooltip;
+  Shields Logger page fed by the `neonwolf-blocked-request` observer topic.
+  Remaining: GUI validation pass, patch-capture of the logger/panel deltas.
 - **uBO-M5:** retire the adblock-rust engine (keep dormant as fallback).
 
 The original M1–M3 below are complete on the old engine and remain the
