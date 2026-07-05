@@ -82,7 +82,7 @@ diff -ruN a/toolkit/components/content-classifier/moz.build b/toolkit/components
 diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit/components/content-classifier/UBONetFilter.sys.mjs
 --- a/toolkit/components/content-classifier/UBONetFilter.sys.mjs	1969-12-31 17:00:00.000000000 -0700
 +++ b/toolkit/components/content-classifier/UBONetFilter.sys.mjs	2026-07-01 20:31:20.638795139 -0600
-@@ -0,0 +1,580 @@
+@@ -0,0 +1,615 @@
 +/* This Source Code Form is subject to the terms of the Mozilla Public
 + * License, v. 2.0. If a copy of the MPL was not distributed with this
 + * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -165,6 +165,13 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +  // Per-source-site block counts, keyed like the C++ service's counter: the
 +  // loading principal's base domain. Read by the Neonwolf Shields panel.
 +  _blockedCounts: new Map(),
++  // Recently hard-cancelled request URLs (NOT redirected ones, which load a
++  // shim and never error). The cosmetic child actor queries these to collapse
++  // leftover broken placeholders. Insertion-ordered Set, FIFO-evicted at cap;
++  // a single global set (not per-tab) is enough because a URL present here was
++  // genuinely blocked and would block in any tab that loads it.
++  _recentBlocked: new Set(),
++  RECENT_BLOCKED_CAP: 4096,
 +
 +  init() {
 +    if (!this._initPromise) {
@@ -450,6 +457,7 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +      } catch (e) {
 +        return;
 +      }
++      this._recordBlocked(uri.asciiSpec);
 +    }
 +
 +    let site = "";
@@ -661,6 +669,33 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +   */
 +  getBlockedCount(site) {
 +    return this._blockedCounts.get(site) || 0;
++  },
++
++  _recordBlocked(url) {
++    if (!url || this._recentBlocked.has(url)) {
++      return;
++    }
++    this._recentBlocked.add(url);
++    if (this._recentBlocked.size > this.RECENT_BLOCKED_CAP) {
++      // Set preserves insertion order: the first value is the oldest.
++      this._recentBlocked.delete(this._recentBlocked.values().next().value);
++    }
++  },
++
++  // Given candidate resource URLs (from the cosmetic child's failed-element
++  // survey), return the subset this engine hard-cancelled -- those are the
++  // placeholders safe to collapse.
++  filterBlockedUrls(urls) {
++    if (!Array.isArray(urls) || !this._recentBlocked.size) {
++      return [];
++    }
++    const out = [];
++    for (const url of urls) {
++      if (this._recentBlocked.has(url)) {
++        out.push(url);
++      }
++    }
++    return out;
 +  },
 +};
 diff -ruN a/toolkit/components/content-classifier/UBOPslSelfie.sys.mjs b/toolkit/components/content-classifier/UBOPslSelfie.sys.mjs
