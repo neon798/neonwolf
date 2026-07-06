@@ -71,7 +71,7 @@ diff -ruN a/toolkit/actors/CosmeticFilterChild.sys.mjs b/toolkit/actors/Cosmetic
      // Phase 2: scriptlet injection. Kick off the query alongside the cosmetic
      // context query so both round-trips run concurrently, then inject the
      // assembled scriptlet JS into the page's MAIN world as early as possible
-@@ -173,6 +229,72 @@
+@@ -173,6 +229,162 @@
      this._scheduleFlush();
    }
  
@@ -134,11 +134,101 @@ diff -ruN a/toolkit/actors/CosmeticFilterChild.sys.mjs b/toolkit/actors/Cosmetic
 +      });
 +    } catch (e) {}
 +
++    // domCollapser: hide leftover broken placeholders for hard-blocked
++    // resources. Resource load errors don't bubble, so listen in the capture
++    // phase; each failed element is confirmed against the network engine
++    // before collapsing, so genuinely broken (but unblocked) elements stay.
++    try {
++      window.addEventListener(
++        "error",
++        event => this._onResourceError(event),
++        true
++      );
++    } catch (e) {}
++
 +    const docEl = this.document.documentElement;
 +    if (docEl) {
 +      this._collectTokens(docEl);
 +    }
 +    this._scheduleFlush();
++  }
++
++  // domCollapser: collect a failed-resource element, then confirm+collapse on a
++  // microtask so a burst of load errors coalesces into one engine query.
++  _onResourceError(event) {
++    const el = event.target;
++    const url = this._collapsibleUrl(el);
++    if (!url) {
++      return;
++    }
++    if (!this._collapsePending) {
++      this._collapsePending = [];
++    }
++    this._collapsePending.push({ el, url });
++    if (this._collapseScheduled) {
++      return;
++    }
++    this._collapseScheduled = true;
++    Promise.resolve().then(() => {
++      this._collapseScheduled = false;
++      this._flushCollapse();
++    });
++  }
++
++  // Resolved (absolute) resource URL for a collapsible element, matching what
++  // UBONetFilter recorded (channel.URI.asciiSpec). Empty for anything else,
++  // including window-targeted script ErrorEvents.
++  _collapsibleUrl(el) {
++    if (!el || el.nodeType !== 1) {
++      return "";
++    }
++    switch (el.localName) {
++      case "img":
++      case "input":
++      case "iframe":
++      case "embed":
++      case "audio":
++      case "video":
++      case "source":
++        return el.currentSrc || el.src || "";
++      case "object":
++        return el.data || "";
++      default:
++        return "";
++    }
++  }
++
++  async _flushCollapse() {
++    const pending = this._collapsePending || [];
++    this._collapsePending = [];
++    const window = this.contentWindow;
++    if (!pending.length || !window || Cu.isDeadWrapper(window)) {
++      return;
++    }
++    const urls = [...new Set(pending.map(p => p.url))];
++    let res;
++    try {
++      res = await this.sendQuery("GetUBOCollapse", { urls });
++    } catch (e) {
++      return;
++    }
++    if (Cu.isDeadWrapper(window)) {
++      return;
++    }
++    const blocked = new Set(res && res.blocked ? res.blocked : []);
++    if (!blocked.size) {
++      return;
++    }
++    for (const { el, url } of pending) {
++      if (!blocked.has(url)) {
++        continue;
++      }
++      try {
++        if (el.isConnected) {
++          el.style.setProperty("display", "none", "important");
++        }
++      } catch (e) {}
++    }
 +  }
 +
    async _injectScriptlets(scriptPromise) {
@@ -179,7 +269,7 @@ diff -ruN a/toolkit/actors/CosmeticFilterChild.sys.mjs b/toolkit/actors/Cosmetic
 diff -ruN a/toolkit/actors/CosmeticFilterParent.sys.mjs b/toolkit/actors/CosmeticFilterParent.sys.mjs
 --- a/toolkit/actors/CosmeticFilterParent.sys.mjs	2026-07-02 08:12:04.042698335 -0600
 +++ b/toolkit/actors/CosmeticFilterParent.sys.mjs	2026-07-02 08:11:33.756082449 -0600
-@@ -3,7 +3,20 @@
+@@ -3,7 +3,21 @@
   * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
  
  // Neonwolf cosmetic filtering: parent-side bridge between content documents and
@@ -191,6 +281,7 @@ diff -ruN a/toolkit/actors/CosmeticFilterParent.sys.mjs b/toolkit/actors/Cosmeti
 +
 +ChromeUtils.defineESModuleGetters(lazy, {
 +  UBOCosmeticFilter: "resource://gre/modules/UBOCosmeticFilter.sys.mjs",
++  UBONetFilter: "resource://gre/modules/UBONetFilter.sys.mjs",
 +});
 +
 +const uboCosmeticEnabled = Services.prefs.getBoolPref(
@@ -201,17 +292,18 @@ diff -ruN a/toolkit/actors/CosmeticFilterParent.sys.mjs b/toolkit/actors/Cosmeti
  export class CosmeticFilterParent extends JSWindowActorParent {
    // Per-site Shields (M3): returns true when blocking is DISABLED for the
    // top-level page, i.e. the "neonwolf-shields" permission is ALLOW on the top
-@@ -30,6 +43,9 @@
+@@ -30,6 +43,10 @@
    _emptyResultFor(name) {
      switch (name) {
        case "GetCosmeticContext":
 +      case "GetUBOCosmetic":
 +      case "GetUBOGeneric":
 +      case "GetUBOScriptlet":
++      case "GetUBOCollapse":
          return {};
        case "GetInjectedScript":
          return "";
-@@ -38,12 +54,55 @@
+@@ -38,12 +54,59 @@
      }
    }
  
@@ -223,6 +315,10 @@ diff -ruN a/toolkit/actors/CosmeticFilterParent.sys.mjs b/toolkit/actors/Cosmeti
 +    // undefined so receiveMessage falls through to the C++ service path.
 +    if (!message.name.startsWith("GetUBO")) {
 +      return undefined;
++    }
++    if (message.name === "GetUBOCollapse") {
++      // Network-side query -- independent of the cosmetic engine's readiness.
++      return { blocked: lazy.UBONetFilter.filterBlockedUrls(message.data.urls) };
 +    }
 +    const engine = lazy.UBOCosmeticFilter;
 +    if (!engine.ready) {
@@ -291,7 +387,7 @@ diff -ruN a/toolkit/components/content-classifier/ContentClassifierRemoteSetting
 diff -ruN a/toolkit/components/content-classifier/moz.build b/toolkit/components/content-classifier/moz.build
 --- a/toolkit/components/content-classifier/moz.build	2026-07-02 08:11:46.318527923 -0600
 +++ b/toolkit/components/content-classifier/moz.build	2026-07-02 08:11:33.758112755 -0600
-@@ -28,6 +28,9 @@
+@@ -28,7 +28,10 @@
  
  EXTRA_JS_MODULES += [
      "ContentClassifierRemoteSettingsClient.sys.mjs",
@@ -300,6 +396,7 @@ diff -ruN a/toolkit/components/content-classifier/moz.build b/toolkit/components
 +    "UBOCosmeticResources.sys.mjs",
      "UBONetFilter.sys.mjs",
      "UBOPslSelfie.sys.mjs",
+     "UBORedirectResources.sys.mjs",
      "UBOSnfe.sys.mjs",
 diff -ruN a/toolkit/components/content-classifier/UBOCosmeticFilter.sys.mjs b/toolkit/components/content-classifier/UBOCosmeticFilter.sys.mjs
 --- a/toolkit/components/content-classifier/UBOCosmeticFilter.sys.mjs	1969-12-31 17:00:00.000000000 -0700

@@ -1,0 +1,79 @@
+<?xml version="1.0"?> <!-- -*- Mode: HTML -*- -->
+
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+
+<?xml-stylesheet href="chrome://global/skin/global.css" type="text/css"?>
+<?xml-stylesheet href="chrome://browser/content/neonwolf-shields.css" type="text/css"?>
+
+<window xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+        xmlns:html="http://www.w3.org/1999/xhtml"
+        id="neonwolf-shields-stats-window"
+        windowtype="neonwolf:shields-stats"
+        title="Neonwolf Shields Stats"
+        width="900"
+        height="640">
+
+  <script src="chrome://browser/content/neonwolf-shields-stats.js"/>
+
+  <vbox id="neonwolf-stats-root" class="neonwolf-stats" flex="1">
+    <vbox id="neonwolf-stats-header" class="neonwolf-stats-header">
+      <label class="neonwolf-stats-title" value="Neonwolf Shields Stats"/>
+      <label class="neonwolf-stats-subtitle"
+             value="Session-wide blocking aggregates"/>
+    </vbox>
+
+    <hbox id="neonwolf-stats-toolbar" class="neonwolf-stats-toolbar" align="center">
+      <spacer flex="1"/>
+      <button id="neonwolf-stats-clear" class="neonwolf-stats-btn" label="Clear"/>
+    </hbox>
+
+    <vbox id="neonwolf-stats-empty" class="neonwolf-stats-empty">
+      <label class="neonwolf-stats-empty-title" value="No data yet"/>
+      <label class="neonwolf-stats-empty-hint"
+             value="Browse with Shields up. Blocking events will aggregate here for this session."/>
+    </vbox>
+
+    <scrollbox id="neonwolf-stats-scroll" class="neonwolf-stats-scroll" flex="1" hidden="true">
+      <vbox id="neonwolf-stats-content" class="neonwolf-stats-content">
+        <hbox id="neonwolf-stats-headline" class="neonwolf-stats-headline" align="center">
+          <vbox class="neonwolf-stats-counter">
+            <label class="neonwolf-stats-counter-value" id="neonwolf-stats-total" value="0"/>
+            <label class="neonwolf-stats-counter-label" value="Total"/>
+          </vbox>
+          <vbox class="neonwolf-stats-counter">
+            <label class="neonwolf-stats-counter-value neonwolf-stats-value-blocked"
+                   id="neonwolf-stats-blocked" value="0"/>
+            <label class="neonwolf-stats-counter-label" value="Blocked"/>
+          </vbox>
+          <vbox class="neonwolf-stats-counter">
+            <label class="neonwolf-stats-counter-value neonwolf-stats-value-redirected"
+                   id="neonwolf-stats-redirected" value="0"/>
+            <label class="neonwolf-stats-counter-label" value="Redirected"/>
+          </vbox>
+          <vbox class="neonwolf-stats-counter">
+            <label class="neonwolf-stats-counter-value neonwolf-stats-value-allowed"
+                   id="neonwolf-stats-allowed" value="0"/>
+            <label class="neonwolf-stats-counter-label" value="Allowed"/>
+          </vbox>
+        </hbox>
+
+        <vbox class="neonwolf-stats-section">
+          <label class="neonwolf-stats-section-title" value="By type"/>
+          <vbox id="neonwolf-stats-by-type" class="neonwolf-stats-by-type"/>
+        </vbox>
+
+        <vbox class="neonwolf-stats-section">
+          <label class="neonwolf-stats-section-title" value="Top blocked sites"/>
+          <vbox id="neonwolf-stats-top-sites" class="neonwolf-stats-top-sites"/>
+        </vbox>
+
+        <vbox class="neonwolf-stats-section">
+          <label class="neonwolf-stats-section-title" value="Blocks per minute (last 10 min)"/>
+          <hbox id="neonwolf-stats-per-minute" class="neonwolf-stats-per-minute" align="end"/>
+        </vbox>
+      </vbox>
+    </scrollbox>
+  </vbox>
+</window>

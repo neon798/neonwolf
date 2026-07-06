@@ -16,14 +16,77 @@
  * This mirrors toolkit/components/antitracking/ContentBlockingAllowList but
  * with the "neonwolf-shields" permission type and EXPIRE_NEVER expiry.
  *
- * The five category checkboxes remain bound to the global `neonwolf.shields.*`
- * prefs for v1 and are presented as global defaults.
+ * The five category checkboxes are global defaults bound to the real
+ * enforcement prefs (see _categoryPrefs), not neonwolf.shields.* shadows.
  */
 var gNeonwolfShieldsHandler = {
   // Shared contract with the backend / CosmeticFilterParent.
   PERMISSION_TYPE: "neonwolf-shields",
 
   _categories: ["ads", "trackers", "fingerprinting", "cookies", "httpsUpgrade"],
+
+  /**
+   * Each category toggle drives the real enforcement pref(s), not a
+   * neonwolf.shields.* shadow pref nothing consumes. Defaults mirror the
+   * LibreWolf baseline (everything on; cookieBehavior 5 is the Firefox
+   * default, Total Cookie Protection).
+   */
+  _categoryPrefs: {
+    ads: {
+      get: () =>
+        Services.prefs.getBoolPref(
+          "privacy.trackingprotection.ubo.network.enabled",
+          true
+        ),
+      set: enabled => {
+        Services.prefs.setBoolPref(
+          "privacy.trackingprotection.ubo.network.enabled",
+          enabled
+        );
+        Services.prefs.setBoolPref(
+          "privacy.trackingprotection.ubo.cosmetic.enabled",
+          enabled
+        );
+        // Also flip the adblock-rust fallback's master switch: with the uBO
+        // cosmetic path disabled, CosmeticFilterParent falls through to the
+        // C++ classifier, which would otherwise keep hiding ads.
+        Services.prefs.setBoolPref(
+          "privacy.trackingprotection.content.protection.enabled",
+          enabled
+        );
+      },
+    },
+    trackers: {
+      get: () =>
+        Services.prefs.getBoolPref("privacy.trackingprotection.enabled", true),
+      set: enabled =>
+        Services.prefs.setBoolPref(
+          "privacy.trackingprotection.enabled",
+          enabled
+        ),
+    },
+    fingerprinting: {
+      get: () =>
+        Services.prefs.getBoolPref("privacy.resistFingerprinting", true),
+      set: enabled =>
+        Services.prefs.setBoolPref("privacy.resistFingerprinting", enabled),
+    },
+    cookies: {
+      get: () =>
+        Services.prefs.getIntPref("network.cookie.cookieBehavior", 5) != 0,
+      set: enabled =>
+        Services.prefs.setIntPref(
+          "network.cookie.cookieBehavior",
+          enabled ? 5 : 0
+        ),
+    },
+    httpsUpgrade: {
+      get: () =>
+        Services.prefs.getBoolPref("dom.security.https_only_mode", true),
+      set: enabled =>
+        Services.prefs.setBoolPref("dom.security.https_only_mode", enabled),
+    },
+  },
 
   get _panel() {
     delete this._panel;
@@ -193,12 +256,63 @@ var gNeonwolfShieldsHandler = {
       button.setAttribute("shields", "up");
       return;
     }
-    button.setAttribute("shields", this.isShieldsDown() ? "down" : "up");
+    let down = this.isShieldsDown();
+    let count = this.getBlockedCount();
+    button.setAttribute("shields", down ? "down" : "up");
     // Surface the real blocked count in the urlbar button tooltip.
     button.setAttribute(
       "tooltiptext",
-      `Neonwolf Shields - ${this.getBlockedCount()} blocked on this site`
+      `Neonwolf Shields - ${count} blocked on this site`
     );
+    this._updateBadge(count, down);
+  },
+
+  /**
+   * Show the blocked count as a small badge on the urlbar button. Created
+   * lazily; hidden when there is nothing blocked or shields are down.
+   */
+  _updateBadge(count, shieldsDown) {
+    let badge = document.getElementById("neonwolf-shields-badge");
+    if (!badge) {
+      let container = document.getElementById(
+        "neonwolf-shields-button-container"
+      );
+      if (!container) {
+        return;
+      }
+      badge = document.createElementNS(
+        "http://www.w3.org/1999/xhtml",
+        "html:span"
+      );
+      badge.id = "neonwolf-shields-badge";
+      container.appendChild(badge);
+    }
+    badge.hidden = shieldsDown || !count;
+    badge.textContent = count > 99 ? "99+" : String(count);
+  },
+
+  /**
+   * The blocked count grows while a page loads without firing any event we
+   * can listen for, so after a navigation poll updateButton() once a second
+   * for a bounded window. A single timer is reused: a new navigation restarts
+   * the window instead of stacking intervals.
+   */
+  BADGE_REFRESH_TICKS: 10,
+
+  _badgeRefreshTimer: null,
+
+  _startBadgeRefresh() {
+    if (this._badgeRefreshTimer) {
+      clearInterval(this._badgeRefreshTimer);
+    }
+    let ticks = 0;
+    this._badgeRefreshTimer = setInterval(() => {
+      this.updateButton();
+      if (++ticks >= this.BADGE_REFRESH_TICKS) {
+        clearInterval(this._badgeRefreshTimer);
+        this._badgeRefreshTimer = null;
+      }
+    }, 1000);
   },
 
   /**
@@ -256,10 +370,7 @@ var gNeonwolfShieldsHandler = {
     for (let category of this._categories) {
       let el = document.getElementById(`neonwolf-shields-${category}`);
       if (el) {
-        el.checked = Services.prefs.getBoolPref(
-          `neonwolf.shields.${category}`,
-          true
-        );
+        el.checked = this._categoryPrefs[category].get();
         el.disabled = down || !available;
       }
     }
@@ -282,10 +393,40 @@ var gNeonwolfShieldsHandler = {
   },
 
   /**
-   * Category checkbox handler - writes the global default pref (v1).
+   * Category checkbox handler - writes the real enforcement pref(s) globally.
    */
   onCategoryToggle(category, enabled) {
-    Services.prefs.setBoolPref(`neonwolf.shields.${category}`, enabled);
+    this._categoryPrefs[category].set(enabled);
+  },
+
+  /**
+   * Open the Shields Logger in a new tab.
+   */
+  openLogger() {
+    window.openTrustedLinkIn(
+      "chrome://browser/content/neonwolf-shields-logger.xhtml",
+      "tab"
+    );
+  },
+
+  /**
+   * Open the Shields Stats dashboard in a new tab.
+   */
+  openStats() {
+    window.openTrustedLinkIn(
+      "chrome://browser/content/neonwolf-shields-stats.xhtml",
+      "tab"
+    );
+  },
+
+  /**
+   * Open the Custom Filters editor in a new tab.
+   */
+  openFilters() {
+    window.openTrustedLinkIn(
+      "chrome://browser/content/neonwolf-shields-filters.xhtml",
+      "tab"
+    );
   },
 
   /**
@@ -298,6 +439,7 @@ var gNeonwolfShieldsHandler = {
       onLocationChange: aBrowser => {
         if (aBrowser == gBrowser.selectedBrowser) {
           gNeonwolfShieldsHandler.updateButton();
+          gNeonwolfShieldsHandler._startBadgeRefresh();
         }
       },
     });
@@ -345,6 +487,21 @@ var gNeonwolfShieldsHandler = {
           this.onCategoryToggle(category, el.checked)
         );
       }
+    }
+
+    let loggerLink = document.getElementById("neonwolf-shields-open-logger");
+    if (loggerLink) {
+      loggerLink.addEventListener("click", () => this.openLogger());
+    }
+
+    let statsLink = document.getElementById("neonwolf-shields-open-stats");
+    if (statsLink) {
+      statsLink.addEventListener("click", () => this.openStats());
+    }
+
+    let filtersLink = document.getElementById("neonwolf-shields-open-filters");
+    if (filtersLink) {
+      filtersLink.addEventListener("click", () => this.openFilters());
     }
 
     gBrowser.tabContainer.addEventListener("TabSelect", () =>
