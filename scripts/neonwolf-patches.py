@@ -231,6 +231,11 @@ def neonwolf_patches():
     # clean upstream mirror; cfg filename stays librewolf.cfg so upstream
     # patches that reference librewolf.* prefs keep working.
     exec('cat ../../assets/neonwolf.overrides.cfg >> librewolf.cfg')
+    # Bake the full build version (version-release) so the in-app update notifier
+    # (NeonwolfUpdateCheck.sys.mjs) can compare against GitHub release tags —
+    # Services.appinfo.version only carries the FF version, not the -release.
+    with open('librewolf.cfg', 'a') as f:
+        f.write('defaultPref("neonwolf.version.full", "{}-{}");\n'.format(version, release))
     exec('cp -v ../../settings/distribution/policies.json .')
     # Deep-merge Neonwolf policy deltas (e.g. PasswordManagerEnabled:false, which
     # disables the built-in password manager, blocks about:logins and removes the

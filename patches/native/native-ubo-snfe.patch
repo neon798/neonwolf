@@ -82,7 +82,7 @@ diff -ruN a/toolkit/components/content-classifier/moz.build b/toolkit/components
 diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit/components/content-classifier/UBONetFilter.sys.mjs
 --- a/toolkit/components/content-classifier/UBONetFilter.sys.mjs	1969-12-31 17:00:00.000000000 -0700
 +++ b/toolkit/components/content-classifier/UBONetFilter.sys.mjs	2026-07-01 20:31:20.638795139 -0600
-@@ -0,0 +1,615 @@
+@@ -0,0 +1,753 @@
 +/* This Source Code Form is subject to the terms of the Mozilla Public
 + * License, v. 2.0. If a copy of the MPL was not distributed with this
 + * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -133,6 +133,32 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +const USER_FILTERS_LIST_NAME = "neonwolf-user-filters";
 +const REBUILD_DEBOUNCE_MS = 400;
 +
++// Live filter-list refresh: periodically re-fetch the bundled lists from their
++// canonical sources and rebuild the engine in place, BYPASSING RemoteSettings
++// sync (so the dump-only sync-delete hazard can't fire). The bundled dump stays
++// the offline initial state and the per-list fallback; refreshes never write a
++// selfie, so warm starts load the bundled dump fast then refresh in background.
++const LIVE_AUTOREFRESH_PREF = "neonwolf.shields.lists.autoRefresh";
++const LIVE_INTERVAL_PREF = "neonwolf.shields.lists.refreshIntervalHours";
++const LIVE_REFRESHNOW_PREF = "neonwolf.shields.lists.refreshNow";
++const LIVE_LASTREFRESH_PREF = "neonwolf.shields.lists.lastRefresh";
++const LIVE_STARTUP_DELAY_MS = 120000;
++const LIVE_MIN_INTERVAL_MS = 3600000;
++const LIVE_MIN_LIST_BYTES = 10000;
++// record.Name -> canonical source URL (mirrors scripts/fetch-adblock-lists.sh).
++const LIST_URLS = new Map([
++  ["easylist", "https://ublockorigin.github.io/uAssetsCDN/thirdparties/easylist.txt"],
++  ["easyprivacy", "https://ublockorigin.github.io/uAssetsCDN/thirdparties/easyprivacy.txt"],
++  ["ubo-filters", "https://ublockorigin.github.io/uAssetsCDN/filters/filters.min.txt"],
++  ["ubo-badware", "https://ublockorigin.github.io/uAssetsCDN/filters/badware.min.txt"],
++  ["ubo-privacy", "https://ublockorigin.github.io/uAssetsCDN/filters/privacy.min.txt"],
++  ["ubo-quickfixes", "https://ublockorigin.github.io/uAssetsCDN/filters/quick-fixes.min.txt"],
++  ["peterlowe", "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext"],
++  ["adguard-base", "https://filters.adtidy.org/extension/ublock/filters/2_without_easylist.txt"],
++  ["adguard-mobile", "https://filters.adtidy.org/extension/ublock/filters/11.txt"],
++  ["adguard-tracking", "https://filters.adtidy.org/extension/ublock/filters/3.txt"],
++]);
++
 +const BLOCK = 1;
 +
 +ChromeUtils.defineLazyGetter(lazy, "typeMap", () => {
@@ -162,6 +188,7 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +  _prefObserving: false,
 +  _rebuildQueue: null,
 +  _rebuildTimer: null,
++  _liveTimer: null,
 +  // Per-source-site block counts, keyed like the C++ service's counter: the
 +  // loading principal's base domain. Read by the Neonwolf Shields panel.
 +  _blockedCounts: new Map(),
@@ -259,8 +286,12 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +    Services.obs.addObserver(this, "xpcom-shutdown");
 +    // Recompile when the user edits their custom filters.
 +    Services.prefs.addObserver(USER_FILTERS_PREF, this);
++    // Manual "refresh now" trigger + auto-refresh toggle for live list refresh.
++    Services.prefs.addObserver(LIVE_REFRESHNOW_PREF, this);
++    Services.prefs.addObserver(LIVE_AUTOREFRESH_PREF, this);
 +    this._observing = true;
 +    this._prefObserving = true;
++    this._scheduleLiveRefresh();
 +  },
 +
 +  _userFilters() {
@@ -354,7 +385,100 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +    lazy.log.info("engine rebuilt after custom-filter change");
 +  },
 +
-+  observe(subject, topic) {
++  // --- Live list refresh (see LIST_URLS above) ---
++
++  _scheduleLiveRefresh() {
++    if (this._liveTimer) {
++      lazy.clearTimeout(this._liveTimer);
++      this._liveTimer = null;
++    }
++    if (!Services.prefs.getBoolPref(LIVE_AUTOREFRESH_PREF, true)) {
++      return;
++    }
++    this._liveTimer = lazy.setTimeout(
++      () => this._liveTick(),
++      LIVE_STARTUP_DELAY_MS
++    );
++  },
++
++  _liveTick() {
++    this._enqueueLiveRefresh();
++    const hours = Services.prefs.getIntPref(LIVE_INTERVAL_PREF, 24);
++    const ms = Math.max(LIVE_MIN_INTERVAL_MS, hours * 3600000);
++    this._liveTimer = lazy.setTimeout(() => this._liveTick(), ms);
++  },
++
++  // Serialize behind init and any pending user-filter rebuild (useLists throws
++  // if a compile is already in flight).
++  _enqueueLiveRefresh() {
++    const prev = this._rebuildQueue || this._initPromise || Promise.resolve();
++    this._rebuildQueue = prev.catch(() => {}).then(() => this._doLiveRefresh());
++    return this._rebuildQueue;
++  },
++
++  async _doLiveRefresh() {
++    if (!this._snfe) {
++      return;
++    }
++    const t0 = Date.now();
++    const records = await lazy.RemoteSettings(COLLECTION_NAME).get();
++    const lists = [];
++    let fresh = 0;
++    for (const record of records) {
++      let raw = null;
++      const url = LIST_URLS.get(record.Name);
++      if (url) {
++        raw = await this._fetchListText(url);
++        if (raw) {
++          fresh++;
++        }
++      }
++      // Fall back to the bundled dump per-list so a failed fetch never drops a
++      // list (and the engine never degrades to empty).
++      if (!raw) {
++        raw = await this._readListText(record);
++      }
++      if (raw) {
++        lists.push({ name: record.Name, raw });
++      }
++    }
++    const userText = this._userFilters();
++    if (userText) {
++      lists.push({ name: USER_FILTERS_LIST_NAME, raw: userText });
++    }
++    if (!lists.length) {
++      return;
++    }
++    // In-memory only: no selfie write, so the bundled-dump selfie keeps warm
++    // starts fast and this refresh isn't persisted across restarts.
++    await this._snfe.useLists(lists);
++    Services.prefs.setIntPref(
++      LIVE_LASTREFRESH_PREF,
++      Math.floor(Date.now() / 1000)
++    );
++    lazy.log.info(
++      `lists refreshed: ${fresh}/${records.length} fresh (${Date.now() - t0}ms)`
++    );
++  },
++
++  async _fetchListText(url) {
++    try {
++      const resp = await fetch(url, { cache: "no-store" });
++      if (!resp.ok) {
++        return null;
++      }
++      const text = await resp.text();
++      // Sanity floor (matches fetch-adblock-lists.sh): reject truncated bodies.
++      if (!text || text.length < LIVE_MIN_LIST_BYTES) {
++        return null;
++      }
++      return text;
++    } catch (e) {
++      return null;
++    }
++  },
++
++  observe(subject, topic, data) {
 +    switch (topic) {
 +      case "http-on-opening-request":
 +        this._onRequest(subject);
@@ -365,16 +489,30 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +        this._onResponse(subject);
 +        break;
 +      case "nsPref:changed":
-+        // Only USER_FILTERS_PREF is observed, so no need to check subject/data.
-+        this._onUserFiltersChanged();
++        if (data === LIVE_REFRESHNOW_PREF) {
++          if (Services.prefs.getBoolPref(LIVE_REFRESHNOW_PREF, false)) {
++            Services.prefs.setBoolPref(LIVE_REFRESHNOW_PREF, false);
++            this._enqueueLiveRefresh();
++          }
++        } else if (data === LIVE_AUTOREFRESH_PREF) {
++          this._scheduleLiveRefresh();
++        } else {
++          this._onUserFiltersChanged();
++        }
 +        break;
 +      case "xpcom-shutdown":
 +        if (this._rebuildTimer) {
 +          lazy.clearTimeout(this._rebuildTimer);
 +          this._rebuildTimer = null;
 +        }
++        if (this._liveTimer) {
++          lazy.clearTimeout(this._liveTimer);
++          this._liveTimer = null;
++        }
 +        if (this._prefObserving) {
 +          Services.prefs.removeObserver(USER_FILTERS_PREF, this);
++          Services.prefs.removeObserver(LIVE_REFRESHNOW_PREF, this);
++          Services.prefs.removeObserver(LIVE_AUTOREFRESH_PREF, this);
 +          this._prefObserving = false;
 +        }
 +        if (this._observing) {

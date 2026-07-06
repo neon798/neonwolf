@@ -1,7 +1,7 @@
 diff -ruN a/browser/base/jar.mn b/browser/base/jar.mn
 --- a/browser/base/jar.mn
 +++ b/browser/base/jar.mn
-@@ -89,6 +89,17 @@
+@@ -89,6 +89,18 @@
          content/browser/navigator-toolbox.js                (content/navigator-toolbox.js)
          content/browser/nsContextMenu.sys.mjs               (content/nsContextMenu.sys.mjs)
          content/browser/contentTheme.js                     (content/contentTheme.js)
@@ -14,6 +14,7 @@ diff -ruN a/browser/base/jar.mn b/browser/base/jar.mn
 +        content/browser/neonwolf-shields-stats.js           (content/neonwolf-shields-stats.js)
 +        content/browser/neonwolf-shields-filters.xhtml      (content/neonwolf-shields-filters.xhtml)
 +        content/browser/neonwolf-shields-filters.js         (content/neonwolf-shields-filters.js)
++        content/browser/NeonwolfUpdateCheck.sys.mjs         (content/NeonwolfUpdateCheck.sys.mjs)
 +        content/browser/icons/neonwolf-shields-up.svg       (content/icons/neonwolf-shields-up.svg)
 +        content/browser/icons/neonwolf-shields-down.svg     (content/icons/neonwolf-shields-down.svg)
  #ifdef XP_MACOSX

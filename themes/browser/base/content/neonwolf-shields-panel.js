@@ -509,6 +509,14 @@ var gNeonwolfShieldsHandler = {
     );
     gBrowser.addTabsProgressListener(this._progressListener);
     this.updateButton();
+
+    // Bring up the in-app update notifier. Singleton + idempotent, so running
+    // it from every browser window's init is harmless (only the first schedules).
+    try {
+      ChromeUtils.importESModule(
+        "chrome://browser/content/NeonwolfUpdateCheck.sys.mjs"
+      ).NeonwolfUpdateCheck.init();
+    } catch (e) {}
   },
 };
 
