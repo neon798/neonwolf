@@ -387,7 +387,7 @@ diff -ruN a/toolkit/components/content-classifier/ContentClassifierRemoteSetting
 diff -ruN a/toolkit/components/content-classifier/moz.build b/toolkit/components/content-classifier/moz.build
 --- a/toolkit/components/content-classifier/moz.build	2026-07-02 08:11:46.318527923 -0600
 +++ b/toolkit/components/content-classifier/moz.build	2026-07-02 08:11:33.758112755 -0600
-@@ -28,6 +28,9 @@
+@@ -28,7 +28,10 @@
  
  EXTRA_JS_MODULES += [
      "ContentClassifierRemoteSettingsClient.sys.mjs",
@@ -396,6 +396,7 @@ diff -ruN a/toolkit/components/content-classifier/moz.build b/toolkit/components
 +    "UBOCosmeticResources.sys.mjs",
      "UBONetFilter.sys.mjs",
      "UBOPslSelfie.sys.mjs",
+     "UBORedirectResources.sys.mjs",
      "UBOSnfe.sys.mjs",
 diff -ruN a/toolkit/components/content-classifier/UBOCosmeticFilter.sys.mjs b/toolkit/components/content-classifier/UBOCosmeticFilter.sys.mjs
 --- a/toolkit/components/content-classifier/UBOCosmeticFilter.sys.mjs	1969-12-31 17:00:00.000000000 -0700

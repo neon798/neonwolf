@@ -74,8 +74,8 @@ diff -ruN a/toolkit/components/content-classifier/moz.build b/toolkit/components
      "ContentClassifierRemoteSettingsClient.sys.mjs",
 +    "UBONetFilter.sys.mjs",
 +    "UBOPslSelfie.sys.mjs",
-+    "UBOSnfe.sys.mjs",
 +    "UBORedirectResources.sys.mjs",
++    "UBOSnfe.sys.mjs",
  ]
  
  XPCOM_MANIFESTS += [
