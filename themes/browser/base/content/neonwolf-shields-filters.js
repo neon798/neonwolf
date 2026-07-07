@@ -12,6 +12,7 @@
  */
 var gNeonwolfShieldsFilters = {
   PREF: "privacy.trackingprotection.ubo.userFilters",
+  PREF_SUBSCRIPTIONS: "neonwolf.shields.lists.subscriptions",
   LINT_DEBOUNCE_MS: 300,
   SAVED_STATUS_MS: 2500,
 
@@ -45,12 +46,134 @@ var gNeonwolfShieldsFilters = {
     return (this._statusLabel = document.getElementById("neonwolf-filters-status"));
   },
 
+  get _subscribeList() {
+    delete this._subscribeList;
+    return (this._subscribeList = document.getElementById(
+      "neonwolf-filters-subscribe-list"
+    ));
+  },
+
+  get _subscribeInput() {
+    delete this._subscribeInput;
+    return (this._subscribeInput = document.getElementById(
+      "neonwolf-filters-subscribe-input"
+    ));
+  },
+
   _loadFromPref() {
     return Services.prefs.getStringPref(this.PREF, "");
   },
 
   _saveToPref(value) {
     Services.prefs.setStringPref(this.PREF, value);
+  },
+
+  _loadSubscriptions() {
+    return Services.prefs
+      .getStringPref(this.PREF_SUBSCRIPTIONS, "")
+      .split("\n")
+      .map(line => line.trim())
+      .filter(Boolean);
+  },
+
+  _saveSubscriptions(urls) {
+    Services.prefs.setStringPref(this.PREF_SUBSCRIPTIONS, urls.join("\n"));
+  },
+
+  _renderSubscriptions() {
+    let list = this._subscribeList;
+    if (!list) {
+      return;
+    }
+    list.textContent = "";
+    let urls = this._loadSubscriptions();
+    if (!urls.length) {
+      let empty = document.createXULElement("label");
+      empty.className = "neonwolf-filters-subscribe-empty";
+      empty.setAttribute("value", "No subscribed URLs");
+      list.appendChild(empty);
+      return;
+    }
+    for (let url of urls) {
+      let row = document.createXULElement("label");
+      row.className = "neonwolf-filters-subscribe-item";
+      row.setAttribute("value", url);
+      row.setAttribute("crop", "end");
+      list.appendChild(row);
+    }
+  },
+
+  async _onImport() {
+    let fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    fp.init(
+      window.browsingContext,
+      "Import filters",
+      Ci.nsIFilePicker.modeOpen
+    );
+    fp.appendFilters(Ci.nsIFilePicker.filterText);
+    fp.appendFilter("Text files", "*.txt");
+
+    let result = await new Promise(resolve => fp.open({ done: resolve }));
+    if (result != Ci.nsIFilePicker.returnOK) {
+      return;
+    }
+
+    let imported = await IOUtils.readUTF8(fp.file.path);
+    let append = Services.prompt.confirm(
+      window,
+      "Import filters",
+      "Append to existing rules?\n\nOK = Append\nCancel = Replace"
+    );
+    let merged = append
+      ? [this._editor.value.trimEnd(), imported.trim()].filter(Boolean).join("\n")
+      : imported;
+    this._editor.value = merged;
+    this._onInput();
+  },
+
+  async _onExport() {
+    let fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    fp.init(
+      window.browsingContext,
+      "Export filters",
+      Ci.nsIFilePicker.modeSave
+    );
+    fp.appendFilters(Ci.nsIFilePicker.filterText);
+    fp.appendFilter("Text files", "*.txt");
+    fp.defaultString = "neonwolf-filters.txt";
+
+    let result = await new Promise(resolve => fp.open({ done: resolve }));
+    if (result != Ci.nsIFilePicker.returnOK) {
+      return;
+    }
+
+    await IOUtils.writeUTF8(fp.file.path, this._editor.value);
+    this._statusLabel.setAttribute("value", "Exported");
+    if (this._savedTimer) {
+      clearTimeout(this._savedTimer);
+    }
+    this._savedTimer = setTimeout(() => {
+      this._savedTimer = null;
+      this._statusLabel.setAttribute("value", "");
+    }, this.SAVED_STATUS_MS);
+  },
+
+  _onSubscribeAdd() {
+    let input = this._subscribeInput;
+    if (!input) {
+      return;
+    }
+    let url = input.value.trim();
+    if (!url) {
+      return;
+    }
+    let urls = this._loadSubscriptions();
+    if (!urls.includes(url)) {
+      urls.push(url);
+      this._saveSubscriptions(urls);
+    }
+    input.value = "";
+    this._renderSubscriptions();
   },
 
   // Cosmetic separators, longest first so the full separator (and thus the
@@ -212,6 +335,7 @@ var gNeonwolfShieldsFilters = {
     this._savedValue = this._loadFromPref();
     this._editor.value = this._savedValue;
     this._invalidLines = this._lintText(this._savedValue);
+    this._renderSubscriptions();
     this._updateChrome();
   },
 
@@ -259,6 +383,21 @@ var gNeonwolfShieldsFilters = {
     let revertBtn = document.getElementById("neonwolf-filters-revert");
     if (revertBtn) {
       revertBtn.addEventListener("command", () => this._onRevert());
+    }
+
+    let importBtn = document.getElementById("neonwolf-filters-import");
+    if (importBtn) {
+      importBtn.addEventListener("command", () => this._onImport());
+    }
+
+    let exportBtn = document.getElementById("neonwolf-filters-export");
+    if (exportBtn) {
+      exportBtn.addEventListener("command", () => this._onExport());
+    }
+
+    let subscribeAdd = document.getElementById("neonwolf-filters-subscribe-add");
+    if (subscribeAdd) {
+      subscribeAdd.addEventListener("command", () => this._onSubscribeAdd());
     }
 
     this._editor.addEventListener("input", () => this._onInput());

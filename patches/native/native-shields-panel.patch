@@ -1,7 +1,7 @@
 diff -ruN a/browser/base/jar.mn b/browser/base/jar.mn
 --- a/browser/base/jar.mn
 +++ b/browser/base/jar.mn
-@@ -89,6 +89,17 @@
+@@ -89,6 +89,23 @@
          content/browser/navigator-toolbox.js                (content/navigator-toolbox.js)
          content/browser/nsContextMenu.sys.mjs               (content/nsContextMenu.sys.mjs)
          content/browser/contentTheme.js                     (content/contentTheme.js)
@@ -14,6 +14,12 @@ diff -ruN a/browser/base/jar.mn b/browser/base/jar.mn
 +        content/browser/neonwolf-shields-stats.js           (content/neonwolf-shields-stats.js)
 +        content/browser/neonwolf-shields-filters.xhtml      (content/neonwolf-shields-filters.xhtml)
 +        content/browser/neonwolf-shields-filters.js         (content/neonwolf-shields-filters.js)
++        content/browser/neonwolf-shields-lists.xhtml        (content/neonwolf-shields-lists.xhtml)
++        content/browser/neonwolf-shields-lists.js           (content/neonwolf-shields-lists.js)
++        content/browser/neonwolf-update-banner.js           (content/neonwolf-update-banner.js)
++        content/browser/neonwolf-element-picker.js          (content/neonwolf-element-picker.js)
++        content/browser/neonwolf-element-picker-content.js  (content/neonwolf-element-picker-content.js)
++        content/browser/NeonwolfUpdateCheck.sys.mjs         (content/NeonwolfUpdateCheck.sys.mjs)
 +        content/browser/icons/neonwolf-shields-up.svg       (content/icons/neonwolf-shields-up.svg)
 +        content/browser/icons/neonwolf-shields-down.svg     (content/icons/neonwolf-shields-down.svg)
  #ifdef XP_MACOSX
@@ -30,11 +36,13 @@ diff -ruN a/browser/base/content/browser.xhtml b/browser/base/content/browser.xh
    <link
      rel="stylesheet"
      href="chrome://global/content/resistfingerprinting/letterboxing.css"
-@@ -102,6 +103,7 @@
+@@ -102,6 +103,9 @@
  
    <script src="chrome://browser/content/global-scripts.js"></script>
    <script src="chrome://browser/content/browser-main.js"></script>
++  <script src="chrome://browser/content/neonwolf-element-picker.js"></script>
 +  <script src="chrome://browser/content/neonwolf-shields-panel.js"></script>
++  <script src="chrome://browser/content/neonwolf-update-banner.js"></script>
  </head>
  <html:body xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
  # All sets except for popupsets (commands, keys, and stringbundles)
