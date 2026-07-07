@@ -754,3 +754,152 @@
   color: var(--neonwolf-text-dim) !important;
   opacity: 0.8 !important;
 }
+
+.neonwolf-filters-subscriptions {
+  padding: 8px 12px !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+  gap: 6px !important;
+}
+
+.neonwolf-filters-section-title {
+  color: var(--neonwolf-accent-cyan) !important;
+  font-size: 11px !important;
+  font-weight: bold !important;
+}
+
+.neonwolf-filters-subscribe-row {
+  gap: 8px !important;
+}
+
+.neonwolf-filters-subscribe-input {
+  min-height: 26px !important;
+  font-size: 11px !important;
+  font-family: monospace !important;
+  color: var(--neonwolf-text-primary) !important;
+  background: var(--neonwolf-bg-darkest) !important;
+  border: 1px solid var(--neonwolf-border-cyan) !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+}
+
+.neonwolf-filters-subscribe-list {
+  max-height: 72px !important;
+  overflow: auto !important;
+  gap: 2px !important;
+}
+
+.neonwolf-filters-subscribe-item {
+  font-size: 10px !important;
+  font-family: monospace !important;
+  color: var(--neonwolf-text-secondary) !important;
+}
+
+.neonwolf-filters-subscribe-empty {
+  font-size: 10px !important;
+  color: var(--neonwolf-text-dim) !important;
+  font-style: italic !important;
+}
+
+/* Shields Lists page */
+#neonwolf-shields-lists-window {
+  --neonwolf-bg-darkest: #0d001a;
+  --neonwolf-bg-dark: #1a0028;
+  --neonwolf-bg-mid: #2d004f;
+  --neonwolf-accent-pink: #ff00ff;
+  --neonwolf-accent-cyan: #00ffff;
+  --neonwolf-text-primary: #e0e0ff;
+  --neonwolf-text-secondary: #b0b0ff;
+  --neonwolf-text-dim: #604080;
+  --neonwolf-border-pink: rgba(255, 0, 255, 0.3);
+  --neonwolf-border-cyan: rgba(0, 255, 255, 0.3);
+  background: linear-gradient(180deg, var(--neonwolf-bg-dark), var(--neonwolf-bg-darkest)) !important;
+  color: var(--neonwolf-text-primary) !important;
+}
+
+.neonwolf-lists {
+  min-height: 0 !important;
+}
+
+.neonwolf-lists-header {
+  background: linear-gradient(90deg, var(--neonwolf-bg-mid), var(--neonwolf-bg-dark)) !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+  padding: 12px 16px !important;
+}
+
+.neonwolf-lists-title {
+  color: var(--neonwolf-accent-pink) !important;
+  font-weight: bold !important;
+  font-size: 16px !important;
+  text-shadow: 0 0 5px var(--neonwolf-accent-pink) !important;
+}
+
+.neonwolf-lists-subtitle {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 11px !important;
+  margin-top: 2px !important;
+}
+
+.neonwolf-lists-toolbar {
+  gap: 12px !important;
+  padding: 8px 12px !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+  flex-wrap: wrap !important;
+}
+
+.neonwolf-lists-auto {
+  color: var(--neonwolf-text-secondary) !important;
+  font-size: 11px !important;
+}
+
+.neonwolf-lists-btn {
+  min-width: 96px !important;
+}
+
+.neonwolf-lists-refresh-status {
+  color: var(--neonwolf-accent-cyan) !important;
+  font-size: 10px !important;
+  font-style: italic !important;
+}
+
+.neonwolf-lists-last-refresh {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 10px !important;
+}
+
+.neonwolf-lists-scroll {
+  min-height: 0 !important;
+  background: var(--neonwolf-bg-darkest) !important;
+}
+
+.neonwolf-lists-table {
+  padding: 8px 12px 16px !important;
+}
+
+.neonwolf-lists-row {
+  padding: 4px 0 !important;
+  border-bottom: 1px solid rgba(255, 0, 255, 0.08) !important;
+  gap: 8px !important;
+}
+
+.neonwolf-lists-row-header {
+  font-weight: bold !important;
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid var(--neonwolf-border-cyan) !important;
+  padding-bottom: 6px !important;
+  margin-bottom: 4px !important;
+}
+
+.neonwolf-lists-col-name {
+  width: 200px !important;
+  flex: 0 0 200px !important;
+  font-size: 11px !important;
+  color: var(--neonwolf-text-secondary) !important;
+}
+
+.neonwolf-lists-col-updated {
+  flex: 1 1 auto !important;
+  font-size: 11px !important;
+  color: var(--neonwolf-text-dim) !important;
+}

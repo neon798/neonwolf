@@ -430,6 +430,25 @@ var gNeonwolfShieldsHandler = {
   },
 
   /**
+   * Open the filter-list status page in a new tab.
+   */
+  openLists() {
+    window.openTrustedLinkIn(
+      "chrome://browser/content/neonwolf-shields-lists.xhtml",
+      "tab"
+    );
+  },
+
+  /**
+   * Start the in-page element picker on the current tab.
+   */
+  startPicker() {
+    if (typeof gNeonwolfElementPicker != "undefined") {
+      gNeonwolfElementPicker.start(gBrowser.selectedBrowser);
+    }
+  },
+
+  /**
    * Tabs progress listener that refreshes the urlbar button when the selected
    * tab navigates. Lazily created.
    */
@@ -502,6 +521,16 @@ var gNeonwolfShieldsHandler = {
     let filtersLink = document.getElementById("neonwolf-shields-open-filters");
     if (filtersLink) {
       filtersLink.addEventListener("click", () => this.openFilters());
+    }
+
+    let listsLink = document.getElementById("neonwolf-shields-open-lists");
+    if (listsLink) {
+      listsLink.addEventListener("click", () => this.openLists());
+    }
+
+    let pickLink = document.getElementById("neonwolf-shields-pick-element");
+    if (pickLink) {
+      pickLink.addEventListener("click", () => this.startPicker());
     }
 
     gBrowser.tabContainer.addEventListener("TabSelect", () =>

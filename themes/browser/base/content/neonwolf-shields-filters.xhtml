@@ -27,6 +27,8 @@
     <hbox id="neonwolf-filters-toolbar" class="neonwolf-filters-toolbar" align="center">
       <button id="neonwolf-filters-save" class="neonwolf-filters-btn" label="Save"/>
       <button id="neonwolf-filters-revert" class="neonwolf-filters-btn" label="Revert"/>
+      <button id="neonwolf-filters-import" class="neonwolf-filters-btn" label="Import"/>
+      <button id="neonwolf-filters-export" class="neonwolf-filters-btn" label="Export"/>
       <label id="neonwolf-filters-counter" class="neonwolf-filters-counter"
              value="0 rules, 0 comments"/>
       <spacer flex="1"/>
@@ -35,6 +37,19 @@
       <label id="neonwolf-filters-lint" class="neonwolf-filters-lint"/>
       <label id="neonwolf-filters-status" class="neonwolf-filters-status"/>
     </hbox>
+
+    <vbox id="neonwolf-filters-subscriptions" class="neonwolf-filters-subscriptions">
+      <label class="neonwolf-filters-section-title" value="Subscribed list URLs"/>
+      <hbox class="neonwolf-filters-subscribe-row" align="center">
+        <html:input id="neonwolf-filters-subscribe-input"
+                    class="neonwolf-filters-subscribe-input"
+                    type="url"
+                    placeholder="https://example.com/filters.txt"
+                    flex="1"/>
+        <button id="neonwolf-filters-subscribe-add" class="neonwolf-filters-btn" label="Add"/>
+      </hbox>
+      <vbox id="neonwolf-filters-subscribe-list" class="neonwolf-filters-subscribe-list"/>
+    </vbox>
 
     <vbox id="neonwolf-filters-editor-wrap" class="neonwolf-filters-editor-wrap" flex="1">
       <html:textarea id="neonwolf-filters-editor"
