@@ -184,7 +184,100 @@ var gLibrewolfPane = {
     // Set event listener on open about:config button
     setEventListener("librewolf-config-link", "click", openAboutConfig);
 
+    this._initNeonwolfSettings();
+
     // Notify observers that the UI is now ready
     Services.obs.notifyObservers(window, "librewolf-pane-loaded");
+  },
+
+  // Neonwolf-specific controls (Shields ad-block engine, list refresh, update
+  // check). Wired directly to the real enforcement prefs rather than through
+  // setting-groups, since the "ads" toggle flips several prefs at once (mirrors
+  // the Shields panel's _categoryPrefs) and the refresh button is a one-shot.
+  _initNeonwolfSettings() {
+    let bindCheckbox = (id, get, set) => {
+      let el = document.getElementById(id);
+      if (!el) {
+        return;
+      }
+      el.checked = get();
+      el.addEventListener("command", () => set(el.checked));
+    };
+
+    bindCheckbox(
+      "neonwolf-pref-ads",
+      () =>
+        Services.prefs.getBoolPref(
+          "privacy.trackingprotection.ubo.network.enabled",
+          true
+        ),
+      value => {
+        Services.prefs.setBoolPref(
+          "privacy.trackingprotection.ubo.network.enabled",
+          value
+        );
+        Services.prefs.setBoolPref(
+          "privacy.trackingprotection.ubo.cosmetic.enabled",
+          value
+        );
+        Services.prefs.setBoolPref(
+          "privacy.trackingprotection.content.protection.enabled",
+          value
+        );
+      }
+    );
+
+    bindCheckbox(
+      "neonwolf-pref-autorefresh",
+      () =>
+        Services.prefs.getBoolPref("neonwolf.shields.lists.autoRefresh", true),
+      value =>
+        Services.prefs.setBoolPref("neonwolf.shields.lists.autoRefresh", value)
+    );
+
+    bindCheckbox(
+      "neonwolf-pref-updatecheck",
+      () => Services.prefs.getBoolPref("neonwolf.update.checkEnabled", true),
+      value =>
+        Services.prefs.setBoolPref("neonwolf.update.checkEnabled", value)
+    );
+
+    let refreshBtn = document.getElementById("neonwolf-pref-refresh-now");
+    if (refreshBtn) {
+      refreshBtn.addEventListener("command", () =>
+        Services.prefs.setBoolPref("neonwolf.shields.lists.refreshNow", true)
+      );
+    }
+
+    this._updateNeonwolfLastRefresh();
+    this._neonwolfRefreshObserver = () => this._updateNeonwolfLastRefresh();
+    Services.prefs.addObserver(
+      "neonwolf.shields.lists.lastRefresh",
+      this._neonwolfRefreshObserver
+    );
+    window.addEventListener(
+      "unload",
+      () =>
+        Services.prefs.removeObserver(
+          "neonwolf.shields.lists.lastRefresh",
+          this._neonwolfRefreshObserver
+        ),
+      { once: true }
+    );
+  },
+
+  _updateNeonwolfLastRefresh() {
+    let el = document.getElementById("neonwolf-pref-lastrefresh");
+    if (!el) {
+      return;
+    }
+    // lastRefresh is epoch SECONDS (getIntPref is 32-bit; ms would overflow).
+    let seconds = Services.prefs.getIntPref(
+      "neonwolf.shields.lists.lastRefresh",
+      0
+    );
+    el.value = seconds
+      ? "Last refreshed: " + new Date(seconds * 1000).toLocaleString()
+      : "Using bundled lists";
   },
 };
