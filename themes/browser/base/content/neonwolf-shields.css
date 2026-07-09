@@ -78,6 +78,12 @@
   background: rgba(255, 0, 255, 0.05) !important;
 }
 
+/* Per-site farbling sub-row under the global FPP toggle */
+.shields-subrow {
+  margin-inline-start: 16px !important;
+  color: var(--neonwolf-text-dim) !important;
+}
+
 .shields-toggle-label {
   color: var(--neonwolf-text-secondary) !important;
 }

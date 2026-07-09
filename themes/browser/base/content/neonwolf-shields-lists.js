@@ -11,6 +11,7 @@ var gNeonwolfShieldsLists = {
   PREF_LAST_REFRESH: "neonwolf.shields.lists.lastRefresh",
   PREF_AUTO_REFRESH: "neonwolf.shields.lists.autoRefresh",
   PREF_REFRESH_NOW: "neonwolf.shields.lists.refreshNow",
+  PREF_SUBSCRIPTIONS: "neonwolf.shields.lists.subscriptions",
   OBS_BRANCH: "neonwolf.shields.lists.",
 
   BUNDLED_LISTS: [
@@ -49,6 +50,25 @@ var gNeonwolfShieldsLists = {
     ));
   },
 
+  get _subRows() {
+    delete this._subRows;
+    return (this._subRows = document.getElementById("neonwolf-lists-sub-rows"));
+  },
+
+  get _subInput() {
+    delete this._subInput;
+    return (this._subInput = document.getElementById(
+      "neonwolf-lists-sub-input"
+    ));
+  },
+
+  get _subError() {
+    delete this._subError;
+    return (this._subError = document.getElementById(
+      "neonwolf-lists-sub-error"
+    ));
+  },
+
   _getLastRefresh() {
     return Services.prefs.getIntPref(this.PREF_LAST_REFRESH, 0);
   },
@@ -59,6 +79,110 @@ var gNeonwolfShieldsLists = {
       return "Never (bundled)";
     }
     return new Date(seconds * 1000).toLocaleString();
+  },
+
+  _loadSubscriptions() {
+    return Services.prefs
+      .getStringPref(this.PREF_SUBSCRIPTIONS, "")
+      .split("\n")
+      .map(line => line.trim())
+      .filter(Boolean);
+  },
+
+  _saveSubscriptions(urls) {
+    Services.prefs.setStringPref(this.PREF_SUBSCRIPTIONS, urls.join("\n"));
+  },
+
+  _setSubError(msg) {
+    let err = this._subError;
+    if (!err) {
+      return;
+    }
+    err.setAttribute("value", msg || "");
+  },
+
+  _renderSubscriptions() {
+    let container = this._subRows;
+    if (!container) {
+      return;
+    }
+    container.textContent = "";
+    let urls = this._loadSubscriptions();
+    if (!urls.length) {
+      let empty = document.createXULElement("label");
+      empty.className = "neonwolf-filters-subscribe-empty";
+      empty.setAttribute("value", "No subscribed lists.");
+      container.appendChild(empty);
+      return;
+    }
+    for (let url of urls) {
+      let row = document.createXULElement("hbox");
+      row.className = "neonwolf-lists-row";
+      row.setAttribute("align", "center");
+
+      // textContent (not innerHTML) — URL is user/pref-derived.
+      let urlLabel = document.createXULElement("label");
+      urlLabel.className = "neonwolf-filters-subscribe-item";
+      urlLabel.setAttribute("flex", "1");
+      urlLabel.setAttribute("crop", "end");
+      urlLabel.setAttribute("value", url);
+      row.appendChild(urlLabel);
+
+      let removeBtn = document.createXULElement("button");
+      removeBtn.className = "neonwolf-lists-btn";
+      removeBtn.setAttribute("label", "Remove");
+      removeBtn.addEventListener("command", () =>
+        this._onSubscribeRemove(url)
+      );
+      row.appendChild(removeBtn);
+
+      container.appendChild(row);
+    }
+  },
+
+  _onSubscribeRemove(url) {
+    let urls = this._loadSubscriptions().filter(u => u !== url);
+    this._saveSubscriptions(urls);
+    this._setSubError("");
+    this._renderSubscriptions();
+  },
+
+  _onSubscribeAdd() {
+    let input = this._subInput;
+    if (!input) {
+      return;
+    }
+    let raw = input.value.trim();
+    this._setSubError("");
+
+    if (!raw) {
+      this._setSubError("Enter a URL.");
+      return;
+    }
+
+    let parsed;
+    try {
+      parsed = new URL(raw);
+    } catch (e) {
+      this._setSubError("Invalid URL.");
+      return;
+    }
+
+    if (parsed.protocol !== "https:") {
+      this._setSubError("Only https:// URLs are allowed.");
+      return;
+    }
+
+    let urls = this._loadSubscriptions();
+    if (urls.includes(raw)) {
+      this._setSubError("Already subscribed.");
+      return;
+    }
+
+    urls.push(raw);
+    this._saveSubscriptions(urls);
+    input.value = "";
+    this._renderSubscriptions();
   },
 
   _scheduleRender() {
@@ -147,6 +271,9 @@ var gNeonwolfShieldsLists = {
     ) {
       this._scheduleRender();
     }
+    if (aPrefName == this.PREF_SUBSCRIPTIONS) {
+      this._renderSubscriptions();
+    }
   },
 
   _onUnload() {
@@ -171,11 +298,17 @@ var gNeonwolfShieldsLists = {
       refreshBtn.addEventListener("command", () => this._onRefreshNow());
     }
 
+    let subAdd = document.getElementById("neonwolf-lists-sub-add");
+    if (subAdd) {
+      subAdd.addEventListener("command", () => this._onSubscribeAdd());
+    }
+
     window.addEventListener("unload", () => this._onUnload(), { once: true });
 
     this._lastRefreshSeen = this._getLastRefresh();
     this._syncAutoRefresh();
     this._render();
+    this._renderSubscriptions();
   },
 };
 

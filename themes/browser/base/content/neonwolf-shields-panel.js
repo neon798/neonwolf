@@ -23,6 +23,11 @@ var gNeonwolfShieldsHandler = {
   // Shared contract with the backend / CosmeticFilterParent.
   PERMISSION_TYPE: "neonwolf-shields",
 
+  // FPP + baseline FPP each have their own granularOverrides (same JSON schema).
+  FP_GRANULAR_PREF: "privacy.fingerprintingProtection.granularOverrides",
+  BASELINE_FP_GRANULAR_PREF:
+    "privacy.baselineFingerprintingProtection.granularOverrides",
+
   _categories: ["ads", "trackers", "fingerprinting", "cookies", "httpsUpgrade"],
 
   /**
@@ -67,9 +72,15 @@ var gNeonwolfShieldsHandler = {
     },
     fingerprinting: {
       get: () =>
-        Services.prefs.getBoolPref("privacy.resistFingerprinting", true),
+        Services.prefs.getBoolPref(
+          "privacy.fingerprintingProtection",
+          true
+        ),
       set: enabled =>
-        Services.prefs.setBoolPref("privacy.resistFingerprinting", enabled),
+        Services.prefs.setBoolPref(
+          "privacy.fingerprintingProtection",
+          enabled
+        ),
     },
     cookies: {
       get: () =>
@@ -375,6 +386,8 @@ var gNeonwolfShieldsHandler = {
       }
     }
 
+    this._syncFpSiteRow();
+
     // Real blocked-count from the native content classifier, keyed by the
     // current page's site (see _currentSiteKey / getBlockedCount).
     let countEl = document.getElementById("neonwolf-shields-count");
@@ -383,6 +396,146 @@ var gNeonwolfShieldsHandler = {
     }
 
     this.updateButton();
+  },
+
+  /**
+   * eTLD+1 for the current content principal, or null when unavailable.
+   * Used as firstPartyDomain in granularOverrides.
+   * Note: exemption keys on eTLD+1 and will not match sites whose eTLD+1 is
+   * itself a public-suffix-listed host (e.g. foo.github.io) — known edge, accepted.
+   */
+  _fpSiteDomain() {
+    if (!this._principal) {
+      return null;
+    }
+    try {
+      return Services.eTLD.getBaseDomain(this._principal.URI);
+    } catch (e) {
+      return null;
+    }
+  },
+
+  /**
+   * Parse a granularOverrides string pref (FPP or baseline FPP).
+   * Returns the array, or null if unreadable / not an array (do not touch).
+   */
+  _readGranularOverrides(prefName) {
+    let raw;
+    try {
+      raw = Services.prefs.getStringPref(prefName, "[]");
+    } catch (e) {
+      return null;
+    }
+    try {
+      let parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return null;
+      }
+      return parsed;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  /**
+   * True if domain has an -AllTargets farbling exemption entry.
+   * Canonical source: FPP granularOverrides only.
+   */
+  _isFpSiteExempt(domain) {
+    let arr = this._readGranularOverrides(this.FP_GRANULAR_PREF);
+    if (!arr) {
+      return false;
+    }
+    return arr.some(
+      e =>
+        e &&
+        e.firstPartyDomain === domain &&
+        e.overrides === "-AllTargets"
+    );
+  },
+
+  /**
+   * Add or remove the -AllTargets exemption for domain on BOTH FPP and
+   * baseline FPP granular prefs (canvas rides the baseline tier). Each pref
+   * is read-modify-written independently. All-or-nothing: if either pref is
+   * unreadable, write neither. Never mutates foreign entries.
+   */
+  _setFpSiteExempt(domain, exempt) {
+    if (!domain) {
+      return;
+    }
+    let fppArr = this._readGranularOverrides(this.FP_GRANULAR_PREF);
+    let baselineArr = this._readGranularOverrides(
+      this.BASELINE_FP_GRANULAR_PREF
+    );
+    if (fppArr === null || baselineArr === null) {
+      return;
+    }
+
+    let apply = arr => {
+      if (exempt) {
+        let present = arr.some(
+          e =>
+            e &&
+            e.firstPartyDomain === domain &&
+            e.overrides === "-AllTargets"
+        );
+        if (!present) {
+          arr.push({ firstPartyDomain: domain, overrides: "-AllTargets" });
+        }
+        return arr;
+      }
+      return arr.filter(
+        e =>
+          !(
+            e &&
+            e.firstPartyDomain === domain &&
+            e.overrides === "-AllTargets"
+          )
+      );
+    };
+
+    fppArr = apply(fppArr);
+    baselineArr = apply(baselineArr);
+    Services.prefs.setStringPref(
+      this.FP_GRANULAR_PREF,
+      JSON.stringify(fppArr)
+    );
+    Services.prefs.setStringPref(
+      this.BASELINE_FP_GRANULAR_PREF,
+      JSON.stringify(baselineArr)
+    );
+  },
+
+  /**
+   * Sync the per-site "Farble on this site" row: hide when no domain or
+   * either granularOverrides pref is unreadable; disable when global FPP is
+   * off; otherwise checked means farbling is ON for this site.
+   */
+  _syncFpSiteRow() {
+    let row = document.getElementById("neonwolf-shields-fp-site");
+    if (!row) {
+      return;
+    }
+    let available = !!this._principal;
+    let domain = this._fpSiteDomain();
+    let fppOverrides = this._readGranularOverrides(this.FP_GRANULAR_PREF);
+    let baselineOverrides = this._readGranularOverrides(
+      this.BASELINE_FP_GRANULAR_PREF
+    );
+    if (
+      !available ||
+      !domain ||
+      fppOverrides === null ||
+      baselineOverrides === null
+    ) {
+      row.hidden = true;
+      return;
+    }
+    row.hidden = false;
+    let globalOn = this._categoryPrefs.fingerprinting.get();
+    row.disabled = !globalOn;
+    row.checked = !this._isFpSiteExempt(domain);
   },
 
   /**
@@ -506,6 +659,18 @@ var gNeonwolfShieldsHandler = {
           this.onCategoryToggle(category, el.checked)
         );
       }
+    }
+
+    let fpSite = document.getElementById("neonwolf-shields-fp-site");
+    if (fpSite) {
+      fpSite.addEventListener("command", () => {
+        let domain = this._fpSiteDomain();
+        if (!domain) {
+          return;
+        }
+        // checked = farbling ON here → not exempt; unchecked → exempt.
+        this._setFpSiteExempt(domain, !fpSite.checked);
+      });
     }
 
     let loggerLink = document.getElementById("neonwolf-shields-open-logger");
