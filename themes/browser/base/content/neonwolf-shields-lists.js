@@ -25,6 +25,7 @@ var gNeonwolfShieldsLists = {
     "adguard-base",
     "adguard-mobile",
     "adguard-tracking",
+    "neonwolf-extra",
   ],
 
   _refreshPending: false,

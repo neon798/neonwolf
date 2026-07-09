@@ -52,6 +52,7 @@ LISTS = [
     ("adguard-mobile", "adguard-mobile.txt"),
     ("adguard-base", "adguard-base.txt"),
     ("adguard-tracking", "adguard-tracking.txt"),
+    ("neonwolf-extra", "neonwolf-extra.txt"),
 ]
 
 
