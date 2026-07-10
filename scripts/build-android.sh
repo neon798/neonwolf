@@ -48,6 +48,10 @@ echo "=== configure/build ===" | tee -a "$LOG"
 ./mach build -j"${NEONWOLF_BUILD_JOBS:-$(nproc)}" 2>&1 | tee -a "$LOG"
 echo "=== mach build exit: $? ===" | tee -a "$LOG"
 
+# mach build only assembles GeckoView — the Fenix app APK needs an explicit
+# gradle invocation (mobile/android/docs/fenix.rst).
+./mach gradle fenix:assembleDebug 2>&1 | tee -a "$LOG"
+
 # Package / find APKs
 ./mach package 2>&1 | tee -a "$LOG" || true
 

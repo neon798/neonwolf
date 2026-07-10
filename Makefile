@@ -234,8 +234,8 @@ build-android : $(lw_source_dir)
 package-android :
 	@find $(lw_source_dir)/obj-android -name '*.apk' 2>/dev/null | tee android-apk-list.txt
 	@mkdir -p dist-android
-	@find $(lw_source_dir)/obj-android -name '*arm64*.apk' -exec cp -v {} dist-android/ \; 2>/dev/null || true
-	@find $(lw_source_dir)/obj-android -name 'fenix*.apk' -exec cp -v {} dist-android/ \; 2>/dev/null || true
+	@find $(lw_source_dir)/obj-android/gradle/build/mobile/android/fenix -name '*.apk' -not -name '*androidTest*' -exec cp -v {} dist-android/ \; 2>/dev/null || true
+	@find $(lw_source_dir)/obj-android -name '*arm64*.apk' -not -path '*/fenix/*' -exec cp -v {} dist-android/ \; 2>/dev/null || true
 	@ls -lh dist-android 2>/dev/null || echo "No APKs yet — build still running or failed; see android-build.log"
 
 check-patchfail:

@@ -13,8 +13,10 @@ ac_add_options --enable-project=mobile/android
 # pin aarch64 for phone APKs.
 ac_add_options --target=aarch64
 
-# GeckoView Lite: no Glean embedded in GV (privacy).
-ac_add_options --enable-geckoview-lite
+# NOTE: --enable-geckoview-lite was dropped: Fenix consumes the full GeckoView
+# artifact (its Glean integration expects it; lite is for third-party
+# embedders). Telemetry is disabled via geckoview-prefs + the Fenix
+# liberation work instead.
 
 # End product: Fenix shell. For earliest engine smoke use:
 #   ac_add_options --enable-android-subproject=geckoview_example
