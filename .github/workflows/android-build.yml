@@ -38,6 +38,9 @@ jobs:
 
       - name: Add 16GB swap (single rustc crate peaks ~17GB)
         run: |
+          # The runner image ships an active 4GB /mnt/swapfile — replace it.
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile
           sudo fallocate -l 16G /mnt/swapfile
           sudo chmod 600 /mnt/swapfile
           sudo mkswap /mnt/swapfile
