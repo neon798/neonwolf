@@ -1,0 +1,57 @@
+--- a/mobile/android/fenix/app/build.gradle
++++ b/mobile/android/fenix/app/build.gradle
+@@ -62,7 +62,7 @@
+             arg("room.schemaLocation", "$projectDir/schemas".toString())
+         }
+ 
+-        applicationId "org.mozilla"
++        applicationId "org.neonwolf"
+         minSdk config.minSdkVersion
+         targetSdk config.targetSdkVersion
+         versionCode 1
+@@ -123,12 +123,12 @@
+         debug {
+             shrinkResources = false
+             minifyEnabled = false
+-            applicationIdSuffix ".fenix.debug"
++            applicationIdSuffix ".browser.debug"
+             resValue "bool", "IS_DEBUG", "true"
+             pseudoLocalesEnabled = true
+         }
+         nightly releaseTemplate >> {
+-            applicationIdSuffix ".fenix"
++            applicationIdSuffix ".browser"
+             buildConfigField "boolean", "USE_RELEASE_VERSIONING", "true"
+             def deepLinkSchemeValue = "fenix-nightly"
+             buildConfigField "String", "DEEP_LINK_SCHEME", "\"$deepLinkSchemeValue\""
+@@ -174,7 +174,7 @@
+             initWith buildTypes.nightly
+             shrinkResources = false
+             minifyEnabled = false
+-            applicationIdSuffix ".fenix"
++            applicationIdSuffix ".browser"
+             signingConfig = signingConfigs.debug
+             debuggable false
+             buildConfigField "boolean", "IS_BENCHMARK_BUILD", "true"
+--- a/mobile/android/fenix/app/src/main/res/values/static_strings.xml
++++ b/mobile/android/fenix/app/src/main/res/values/static_strings.xml
+@@ -4,8 +4,8 @@
+    - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+ <resources xmlns:tools="http://schemas.android.com/tools">
+     <!-- Name of the application -->
+-    <string name="app_name" translatable="false">Firefox Fenix</string>
+-    <string name="firefox" translatable="false">Firefox</string>
++    <string name="app_name" translatable="false">Neonwolf</string>
++    <string name="firefox" translatable="false">Neonwolf</string>
+ 
+     <!-- Preference for developers -->
+     <string name="preference_leakcanary" translatable="false">LeakCanary</string>
+@@ -229,7 +229,7 @@
+     <string name="profiler_active_notification" translatable="false">Profiler active</string>
+     <string name="profiler_notification_text" translatable="false">Profiling is active. Tap to stop profiler</string>
+     <string name="profiler_settings_title">Profiler Settings</string>
+-    <string name="profiler_filter_firefox">Firefox</string>
++    <string name="profiler_filter_firefox">Neonwolf</string>
+     <string name="profiler_running">Profiler is currently running</string>
+     <string name="profiler_filter_firefox_explain">Recommended preset for profiling Firefox</string>
+     <string name="profiler_filter_graphics">Graphics</string>

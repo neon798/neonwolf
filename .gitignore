@@ -4,6 +4,9 @@
 /neonwolf-*
 /docker-dist
 *.log
+*.nohup.out
+android-apk-list.txt
+/dist-android
 patchfail.out
 scripts/__pycache__/
 __pycache__/
