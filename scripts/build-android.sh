@@ -24,10 +24,15 @@ mkdir -p "$ANDROID_AVD_PATH"
 CMDLINE_TOOLS="$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin 2>/dev/null | sort -V | tail -1)"
 export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools${CMDLINE_TOOLS:+:$CMDLINE_TOOLS}:$PATH"
 
-# Prefer sccache if present
-if command -v sccache >/dev/null 2>&1 || [ -x "$HOME/.mozbuild/sccache/sccache" ]; then
-  export RUSTC_WRAPPER="${RUSTC_WRAPPER:-sccache}"
-  export CCACHE="${CCACHE:-sccache}"
+# Prefer sccache if present — export the RESOLVED path: configure execs
+# RUSTC_WRAPPER directly, and mach bootstrap's copy is not on PATH.
+SCCACHE_BIN="$(command -v sccache 2>/dev/null || true)"
+if [ -z "$SCCACHE_BIN" ] && [ -x "$HOME/.mozbuild/sccache/sccache" ]; then
+  SCCACHE_BIN="$HOME/.mozbuild/sccache/sccache"
+fi
+if [ -n "$SCCACHE_BIN" ]; then
+  export RUSTC_WRAPPER="${RUSTC_WRAPPER:-$SCCACHE_BIN}"
+  export CCACHE="${CCACHE:-$SCCACHE_BIN}"
 fi
 
 cd "$TREE"
