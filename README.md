@@ -1,5 +1,7 @@
 # Neonwolf
 
+<sub>🖥️ Part of the **[Hyprwave](https://github.com/neon798/hyprwave)** desktop · alongside [FlatArcade](https://github.com/neon798/flatarcade)</sub>
+
 **Neonwolf** is a synthwave-themed, privacy-focused fork of Firefox. It inherits
 [LibreWolf](https://librewolf.net)'s privacy/hardening baseline, then builds
 **owned native features on top** — headlined by **uBlock Origin's actual engine
