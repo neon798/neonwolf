@@ -21,6 +21,12 @@ page).
 > It holds patches, branding, theme CSS, build config, and a Python orchestrator;
 > the Firefox source tarball is downloaded and patched at build time.
 
+## Beta downloads
+
+A public beta for Linux and Windows is available on the
+[Releases page](https://github.com/neon798/neonwolf/releases). See
+[docs/BETA.md](docs/BETA.md) for install steps and known issues.
+
 ## How it's built
 
 ```mermaid

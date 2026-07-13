@@ -81,8 +81,8 @@ diff -ruN a/toolkit/components/content-classifier/moz.build b/toolkit/components
  XPCOM_MANIFESTS += [
 diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit/components/content-classifier/UBONetFilter.sys.mjs
 --- a/toolkit/components/content-classifier/UBONetFilter.sys.mjs	1969-12-31 17:00:00.000000000 -0700
-+++ b/toolkit/components/content-classifier/UBONetFilter.sys.mjs	2026-07-01 20:31:20.638795139 -0600
-@@ -0,0 +1,753 @@
++++ b/toolkit/components/content-classifier/UBONetFilter.sys.mjs	2026-07-08 23:30:00.000000000 -0600
+@@ -0,0 +1,794 @@
 +/* This Source Code Form is subject to the terms of the Mozilla Public
 + * License, v. 2.0. If a copy of the MPL was not distributed with this
 + * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -145,6 +145,15 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +const LIVE_STARTUP_DELAY_MS = 120000;
 +const LIVE_MIN_INTERVAL_MS = 3600000;
 +const LIVE_MIN_LIST_BYTES = 10000;
++// User-subscribed extra lists (newline-separated https:// URLs, managed by the
++// Shields lists/filters pages). Fetch-only — no bundled fallback: a failed
++// fetch just drops that subscription until the next refresh cycle. Personal
++// lists can be tiny, so only a 1-byte floor, but cap the size so a hostile
++// URL can't balloon the compile.
++const SUBSCRIPTIONS_PREF = "neonwolf.shields.lists.subscriptions";
++const SUB_LIST_PREFIX = "neonwolf-sub:";
++const SUB_MIN_LIST_BYTES = 1;
++const LIST_MAX_BYTES = 20 * 1024 * 1024;
 +// record.Name -> canonical source URL (mirrors scripts/fetch-adblock-lists.sh).
 +const LIST_URLS = new Map([
 +  ["easylist", "https://ublockorigin.github.io/uAssetsCDN/thirdparties/easylist.txt"],
@@ -289,6 +298,8 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +    // Manual "refresh now" trigger + auto-refresh toggle for live list refresh.
 +    Services.prefs.addObserver(LIVE_REFRESHNOW_PREF, this);
 +    Services.prefs.addObserver(LIVE_AUTOREFRESH_PREF, this);
++    // Subscribing/unsubscribing a list takes effect via an immediate refresh.
++    Services.prefs.addObserver(SUBSCRIPTIONS_PREF, this);
 +    this._observing = true;
 +    this._prefObserving = true;
 +    this._scheduleLiveRefresh();
@@ -296,6 +307,22 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +
 +  _userFilters() {
 +    return Services.prefs.getStringPref(USER_FILTERS_PREF, "").trim();
++  },
++
++  // Valid https:// subscription URLs from the pref; anything else is ignored
++  // (the pages validate on write, but the pref is user-editable).
++  _subscriptionUrls() {
++    return Services.prefs
++      .getStringPref(SUBSCRIPTIONS_PREF, "")
++      .split("\n")
++      .map(line => line.trim())
++      .filter(line => {
++        try {
++          return new URL(line).protocol === "https:";
++        } catch (e) {
++          return false;
++        }
++      });
 +  },
 +
 +  // Cheap non-cryptographic string hash (djb2) for cache-keying only.
@@ -442,6 +469,15 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +        lists.push({ name: record.Name, raw });
 +      }
 +    }
++    const subUrls = this._subscriptionUrls();
++    let subFresh = 0;
++    for (const url of subUrls) {
++      const raw = await this._fetchListText(url, SUB_MIN_LIST_BYTES);
++      if (raw) {
++        subFresh++;
++        lists.push({ name: SUB_LIST_PREFIX + url, raw });
++      }
++    }
 +    const userText = this._userFilters();
 +    if (userText) {
 +      lists.push({ name: USER_FILTERS_LIST_NAME, raw: userText });
@@ -450,18 +486,20 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +      return;
 +    }
 +    // In-memory only: no selfie write, so the bundled-dump selfie keeps warm
-+    // starts fast and this refresh isn't persisted across restarts.
++    // starts fast and this refresh isn't persisted across restarts. That also
++    // means subscriptions only apply once the first live refresh has run.
 +    await this._snfe.useLists(lists);
 +    Services.prefs.setIntPref(
 +      LIVE_LASTREFRESH_PREF,
 +      Math.floor(Date.now() / 1000)
 +    );
 +    lazy.log.info(
-+      `lists refreshed: ${fresh}/${records.length} fresh (${Date.now() - t0}ms)`
++      `lists refreshed: ${fresh}/${records.length} fresh, ` +
++        `${subFresh}/${subUrls.length} subscriptions (${Date.now() - t0}ms)`
 +    );
 +  },
 +
-+  async _fetchListText(url) {
++  async _fetchListText(url, minBytes = LIVE_MIN_LIST_BYTES) {
 +    try {
 +      const resp = await fetch(url, { cache: "no-store" });
 +      if (!resp.ok) {
@@ -469,7 +507,7 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +      }
 +      const text = await resp.text();
 +      // Sanity floor (matches fetch-adblock-lists.sh): reject truncated bodies.
-+      if (!text || text.length < LIVE_MIN_LIST_BYTES) {
++      if (!text || text.length < minBytes || text.length > LIST_MAX_BYTES) {
 +        return null;
 +      }
 +      return text;
@@ -496,6 +534,8 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +          }
 +        } else if (data === LIVE_AUTOREFRESH_PREF) {
 +          this._scheduleLiveRefresh();
++        } else if (data === SUBSCRIPTIONS_PREF) {
++          this._enqueueLiveRefresh();
 +        } else {
 +          this._onUserFiltersChanged();
 +        }
@@ -513,6 +553,7 @@ diff -ruN a/toolkit/components/content-classifier/UBONetFilter.sys.mjs b/toolkit
 +          Services.prefs.removeObserver(USER_FILTERS_PREF, this);
 +          Services.prefs.removeObserver(LIVE_REFRESHNOW_PREF, this);
 +          Services.prefs.removeObserver(LIVE_AUTOREFRESH_PREF, this);
++          Services.prefs.removeObserver(SUBSCRIPTIONS_PREF, this);
 +          this._prefObserving = false;
 +        }
 +        if (this._observing) {

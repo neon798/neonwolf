@@ -32,7 +32,7 @@ const LASTCHECK_PREF = "neonwolf.update.lastCheckSeconds";
 // (e.g. "152.0.1-3"); Services.appinfo.version only carries the FF version.
 const FULLVERSION_PREF = "neonwolf.version.full";
 const RELEASES_API =
-  "https://api.github.com/repos/neon798/neonwolf/releases/latest";
+  "https://api.github.com/repos/neon798/neonwolf/releases?per_page=30";
 
 const STARTUP_DELAY_MS = 90 * 1000;
 const INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -86,12 +86,28 @@ export const NeonwolfUpdateCheck = {
       return;
     }
     Services.prefs.setIntPref(LASTCHECK_PREF, nowSec);
-    const latest = String(data.tag_name || "").replace(/^v/, "");
-    const url = String(data.html_url || "");
-    if (latest && this._isNewer(latest, this._current())) {
-      Services.prefs.setStringPref(AVAILABLE_PREF, latest);
-      Services.prefs.setStringPref(URL_PREF, url);
-      lazy.log.info(`update available: ${latest}`);
+    if (!Array.isArray(data)) {
+      return;
+    }
+    let best = "";
+    let bestUrl = "";
+    for (const release of data) {
+      if (release.draft === true) {
+        continue;
+      }
+      const candidate = String(release.tag_name || "").replace(/^v/, "");
+      if (!candidate) {
+        continue;
+      }
+      if (!best || this._isNewer(candidate, best)) {
+        best = candidate;
+        bestUrl = String(release.html_url || "");
+      }
+    }
+    if (best && this._isNewer(best, this._current())) {
+      Services.prefs.setStringPref(AVAILABLE_PREF, best);
+      Services.prefs.setStringPref(URL_PREF, bestUrl);
+      lazy.log.info(`update available: ${best}`);
     } else {
       // Clear any stale "available" state once we're current again.
       Services.prefs.setStringPref(AVAILABLE_PREF, "");

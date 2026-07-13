@@ -1,0 +1,23 @@
+! Title: Neonwolf Extra
+! Description: Curated Neonwolf supplement closing tracker/ad-host gaps left by
+!   the bundled lists. Every rule uses $third-party so first-party use of the
+!   host (e.g. logging in to an analytics dashboard, running an ads-manager
+!   console) keeps working; only cross-site tracking is blocked.
+! Maintainer: Neonwolf (assets/adblock/neonwolf-extra.txt — bundled-only, no
+!   canonical fetch URL; the live refresh serves it from the dump)
+! Provenance: gaps found 2026-07-08 by probing every host on
+!   adblock.turtlecute.org (the maintained d3ward replacement) against the
+!   engine — these hosts were unmatched by all ten bundled lists.
+!
+! TikTok advertising / marketing-events APIs (Events API pixel on 3p sites)
+||ads-api.tiktok.com^$third-party
+||ads-sg.tiktok.com^$third-party
+||business-api.tiktok.com^$third-party
+! Yahoo ad-tech and DMP hosts
+||udcm.yahoo.com^$third-party
+||log.fc.yahoo.com^$third-party
+||gemini.yahoo.com^$third-party
+||adtech.yahooinc.com^$third-party
+! Yandex analytics (bundled lists only cover paths/subdomains of these)
+||metrika.yandex.ru^$third-party
+||appmetrica.yandex.ru^$third-party

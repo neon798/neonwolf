@@ -7,9 +7,9 @@
 /**
  * Neonwolf element picker frame script (content process).
  *
- * Injected per pick session. Highlights hovered elements and builds a simple
- * cosmetic filter candidate. Selector generation stays chrome-side of trust
- * (never a page-provided hook); Claude wires a smarter generator later.
+ * Injected per pick session. Highlights hovered elements and builds a
+ * cosmetic filter candidate via a uBO-style selector generator. Selector
+ * generation stays chrome-side of trust (never a page-provided hook).
  */
 (function () {
   if (content.window.__nwPickerSession) {
@@ -19,6 +19,8 @@
   const HIGHLIGHT_ID = "neonwolf-picker-highlight";
   const PANEL_ID = "neonwolf-picker-panel";
   const STYLE_ID = "neonwolf-picker-style";
+  const STABLE_CLASS_RE = /^[A-Za-z_][A-Za-z0-9_-]{1,29}$/;
+  const MAX_PATH_SEGMENTS = 4;
 
   let active = false;
   let selectedElement = null;
@@ -45,10 +47,156 @@
     return tag;
   }
 
+  /** True iff sel matches exactly one node in the document (invalid → false). */
+  function unique(sel) {
+    try {
+      return content.document.querySelectorAll(sel).length === 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /** Stable classes: identifier-like, <3 digits (filters hashed CSS modules). Cap 2. */
+  function stableClasses(el) {
+    let out = [];
+    if (!el.classList) {
+      return out;
+    }
+    for (let c of el.classList) {
+      if (!STABLE_CLASS_RE.test(c)) {
+        continue;
+      }
+      let digits = 0;
+      for (let i = 0; i < c.length; i++) {
+        let ch = c.charCodeAt(i);
+        if (ch >= 48 && ch <= 57) {
+          digits++;
+        }
+      }
+      if (digits >= 3) {
+        continue;
+      }
+      out.push(c);
+      if (out.length >= 2) {
+        break;
+      }
+    }
+    return out;
+  }
+
+  /** :nth-of-type index: same-tag preceding siblings + 1. */
+  function nthOfTypeIndex(el) {
+    let n = 1;
+    let tag = el.tagName;
+    for (let sib = el.previousElementSibling; sib; sib = sib.previousElementSibling) {
+      if (sib.tagName == tag) {
+        n++;
+      }
+    }
+    return n;
+  }
+
+  /**
+   * True if more than one same-parent sibling matches `segment` (tag+classes).
+   * Only same-tag siblings are considered for ambiguity.
+   */
+  function segmentAmbiguousAmongSiblings(el, segment) {
+    let parent = el.parentElement;
+    if (!parent) {
+      return false;
+    }
+    let matches = 0;
+    let tag = el.tagName;
+    for (
+      let child = parent.firstElementChild;
+      child;
+      child = child.nextElementSibling
+    ) {
+      if (child.tagName != tag) {
+        continue;
+      }
+      try {
+        if (child.matches(segment)) {
+          matches++;
+          if (matches > 1) {
+            return true;
+          }
+        }
+      } catch (e) {
+        // invalid segment — treat as non-ambiguous
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Build one path segment for `el`. Returns `{ segment, stopClimb }`.
+   * Unique id → `tag#id` and stop climbing; else tag + stable classes +
+   * optional :nth-of-type when ambiguous among siblings.
+   */
+  function pathSegment(el) {
+    let tag = el.tagName.toLowerCase();
+    if (el.id) {
+      let idCandidate = "#" + cssEscape(el.id);
+      if (unique(idCandidate)) {
+        return { segment: tag + "#" + cssEscape(el.id), stopClimb: true };
+      }
+    }
+
+    let segment = tag;
+    for (let c of stableClasses(el)) {
+      segment += "." + cssEscape(c);
+    }
+    if (segmentAmbiguousAmongSiblings(el, segment)) {
+      segment += ":nth-of-type(" + nthOfTypeIndex(el) + ")";
+    }
+    return { segment, stopClimb: false };
+  }
+
+  /**
+   * uBO-style selector generator. Pure DOM reads only — never call page
+   * functions or hostile content.window hooks.
+   */
   function generateSelector(el) {
-    // Selector generation stays chrome-side of trust: never defer to a
-    // page-defined hook (content.window is attacker-controlled). Claude wires a
-    // smarter generator later.
+    if (!el || el.nodeType != 1) {
+      return "";
+    }
+
+    // Prefer bare #id when unique in the document.
+    if (el.id) {
+      let idSel = "#" + cssEscape(el.id);
+      if (unique(idSel)) {
+        return idSel;
+      }
+    }
+
+    // Bottom-up descendant path, max 4 segments, joined with " > ".
+    let parts = [];
+    let node = el;
+    for (let depth = 0; node && node.nodeType == 1 && depth < MAX_PATH_SEGMENTS; depth++) {
+      let { segment, stopClimb } = pathSegment(node);
+      parts.unshift(segment);
+      let sel = parts.join(" > ");
+      if (unique(sel)) {
+        return sel;
+      }
+      if (stopClimb) {
+        break;
+      }
+      node = node.parentElement;
+    }
+
+    // Deepest path if it still matches the pick; else simple fallback.
+    let deepest = parts.join(" > ");
+    if (deepest) {
+      try {
+        if (el.matches(deepest)) {
+          return deepest;
+        }
+      } catch (e) {
+        // fall through to simpleSelector
+      }
+    }
     return simpleSelector(el);
   }
 

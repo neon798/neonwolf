@@ -42,6 +42,20 @@
         </hbox>
         <vbox id="neonwolf-lists-rows"/>
       </vbox>
+
+      <vbox id="neonwolf-lists-subscriptions" class="neonwolf-filters-subscriptions">
+        <label class="neonwolf-filters-section-title" value="Subscribed lists"/>
+        <vbox id="neonwolf-lists-sub-rows" class="neonwolf-filters-subscribe-list"/>
+        <hbox class="neonwolf-filters-subscribe-row" align="center">
+          <html:input id="neonwolf-lists-sub-input"
+                      class="neonwolf-filters-subscribe-input"
+                      type="url"
+                      placeholder="https://example.com/filters.txt"
+                      flex="1"/>
+          <button id="neonwolf-lists-sub-add" class="neonwolf-lists-btn" label="Subscribe"/>
+        </hbox>
+        <label id="neonwolf-lists-sub-error" class="neonwolf-filters-lint"/>
+      </vbox>
     </scrollbox>
   </vbox>
 </window>

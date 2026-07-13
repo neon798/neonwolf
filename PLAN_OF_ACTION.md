@@ -113,7 +113,7 @@ Shields panel). M4–M6 (farbling, picker, stripping) are unaffected.
 - **`$csp`**: wire `engine.get_csp_directives()` → inject via `nsIHttpChannel.setResponseHeader()`.
 - **domCollapser**: hide leftover placeholders (iframe/img/script) for blocked network resources.
 - **Live list updates**: today lists are dump-only (`rs-blocker.patch` + `gen-adblock-dump.py`) because network sync would *delete* the bundled dump. Add a safe periodic refresh that updates without tripping the sync-delete hazard (keep dump as offline fallback).
-- **Done when:** **>95% d3ward in a real GUI**, validated by the Part 2 harness — the headline goal.
+- **Done when:** **>95% on adblock.turtlecute.org in a real GUI** (d3ward was archived in 2026 — turtlecute is the maintained d3ward-style replacement), validated by the Part 2 harness — the headline goal. *Progress 2026-07-08: first live run scored 116/133 (87%); the 9 missed network hosts (TikTok ads APIs, Yahoo ad-tech, Yandex Metrika) are being closed by the bundled `neonwolf-extra` supplement list.*
 
 ### M3 — Shields panel + logger (give the engine a face and an audit trail)
 *The dead `neonwolf-shields.*` stub becomes a real per-site control surface.*
@@ -135,9 +135,13 @@ Shields panel). M4–M6 (farbling, picker, stripping) are unaffected.
 - **Highest rebase fragility** — these touch hot, frequently-refactored Gecko code. Mark accordingly in `patches/native/MANIFEST.md`; lean on `replace_or_die`-style fail-loud anchors so a bad rebase fails CI instead of silently shipping.
 - **Done when:** browserleaks shows site-varying canvas/audio/WebGL hashes; coveryourtracks reports no obvious "this is a privacy browser" tell.
 
+> **Progress 2026-07-08 (PR #20):** M4 shipped and validated as *FPP-forward farbling* — Firefox 152's native fingerprintingProtection (per-eTLD+1 + per-session deterministic canvas/WebGL noise, verified against a plain control) rather than from-scratch Gecko noise patches; RFP is off (mutually exclusive). WebGL required also disabling LibreWolf's hidden `librewolf.webgl.prompt` silent-deny gate. Dark mode unlocked (RFP was forcing light). Shields integration done: the fingerprinting toggle drives FPP, and a per-site "Farble on this site" row writes `-AllTargets` granular overrides to **both** the FPP and baseline tiers (canvas rides `privacy.baselineFingerprintingProtection`). Known gap: audio readback is NOT farbled (FPP has no audio noise target — that was RFP-only); a native audio-farbling patch is the remaining M4 item. CoverYourTracks: "strong protection against Web tracking".
+
 ### M5 — Element picker + custom filters (complete the uBO replacement)
 - **Element picker**: privileged browser chrome with an SVG highlight overlay, candidate filter generation (network URL + cosmetic selector), specificity/depth controls; write to user filter storage and rebuild the engine.
 - **Custom filters page** (`chrome://neonwolf/content/shields-filters.xhtml`): editable rules, validation, rebuild-on-save.
+
+> **Progress 2026-07-08:** element picker shipped with a uBO-style selector generator (unique-id fast path, stable-class paths, :nth-of-type disambiguation); custom-filters page shipped earlier (editor, lint, import/export); list subscriptions shipped end-to-end (lists-page manager UI + UBONetFilter fetching `neonwolf.shields.lists.subscriptions` on live refresh). M5 is functionally complete.
 
 ### M6 — Binary-level stripping (attack-surface reduction; sequenced last because it's destructive)
 *Convert "hidden + policy" into actually-not-compiled. Risky for build stability — do once features are stable.*
@@ -164,7 +168,7 @@ Shields panel). M4–M6 (farbling, picker, stripping) are unaffected.
 1. `make dir && make check-patchfail` — all patches (incl. `patches/native/*`) apply clean.
 2. `make build` (or `make build-tests`) — compiles; run mochitests for the cosmetic/scriptlet/farbling chains in a tests-enabled build.
 3. Launch the dist binary with a fresh profile (`LANG=en_US.UTF-8 MOZ_ENABLE_WAYLAND=1 … --no-remote --profile /tmp/nw-profile`) and run the automated scorecard:
-   - **d3ward** adblock score (M1/M2 target: >95%)
+   - **adblock.turtlecute.org** adblock score (M1/M2 target: >95%; d3ward is archived)
    - **browserleaks** + **coveryourtracks** (M4 target: site-varying hashes, no privacy-browser tell)
    - Shields per-site toggles change behavior live; logger records blocks (M3)
    - Stripped components absent from `about:buildconfig` / fail to instantiate (M6)
