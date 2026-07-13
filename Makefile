@@ -203,6 +203,40 @@ package :
 run :
 	(cd $(lw_source_dir) && ./mach run)
 
+# --- Android (local full-source GeckoView + Fenix; never artifact mode) ---
+# Produces arm64 APK under $(lw_source_dir)/obj-android. Does not push/commit.
+# Requires: Android SDK/NDK under ~/.mozbuild, rustup target aarch64-linux-android.
+bootstrap-android : $(lw_source_dir)
+	(cd $(lw_source_dir) && ./mach --no-interactive bootstrap --application-choice=mobile_android) || true
+	rustup target add aarch64-linux-android x86_64-linux-android || true
+	mkdir -p $$HOME/.mozbuild/android-device/avd
+
+build-android : $(lw_source_dir)
+	cp -v assets/mozconfig.android $(lw_source_dir)/mozconfig
+	@grep -q 'with-android-sdk' $(lw_source_dir)/mozconfig || \
+	  printf '\nac_add_options --with-android-sdk=%s\nac_add_options --with-android-ndk=%s\n' \
+	    "$$HOME/.mozbuild/android-sdk-linux" \
+	    "$$(ls -d $$HOME/.mozbuild/android-ndk-* 2>/dev/null | sort -V | tail -1)" >> $(lw_source_dir)/mozconfig
+	# Android Gradle computeVersionCode() parseInts each dotted part and dies on
+	# "$(version)-$(release)" — bake the pure Firefox version for Android builds.
+	# (A desktop rebuild in this tree shows plain $(version) until the next `make dir`.)
+	echo $(version) > $(lw_source_dir)/browser/config/version.txt
+	echo $(version) > $(lw_source_dir)/browser/config/version_display.txt
+	# Inject Neonwolf GeckoView prefs if not already present in the tree
+	@if ! grep -q 'Neonwolf Android privacy defaults' $(lw_source_dir)/mobile/android/app/geckoview-prefs.js 2>/dev/null; then \
+	  cat assets/android/neonwolf-geckoview-prefs.js >> $(lw_source_dir)/mobile/android/app/geckoview-prefs.js; \
+	fi
+	NEONWOLF_TREE=$(abspath $(lw_source_dir)) \
+	ANDROID_AVD_PATH=$$HOME/.mozbuild/android-device/avd \
+	ANDROID_HOME=$$HOME/.mozbuild/android-sdk-linux \
+	  bash scripts/build-android.sh
+
+package-android :
+	@find $(lw_source_dir)/obj-android -name '*.apk' 2>/dev/null | tee android-apk-list.txt
+	@mkdir -p dist-android
+	@find $(lw_source_dir)/obj-android/gradle/build/mobile/android/fenix -name '*.apk' -not -name '*androidTest*' -exec cp -v {} dist-android/ \; 2>/dev/null || true
+	@find $(lw_source_dir)/obj-android -name '*arm64*.apk' -not -path '*/fenix/*' -exec cp -v {} dist-android/ \; 2>/dev/null || true
+	@ls -lh dist-android 2>/dev/null || echo "No APKs yet — build still running or failed; see android-build.log"
 
 check-patchfail:
 	sh -c "./scripts/check-patchfail.sh" > patchfail.out

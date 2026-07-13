@@ -1,0 +1,108 @@
+name: Android build
+
+# Compiles Neonwolf for Android (full-source GeckoView + Fenix, arm64) on a
+# hosted runner and uploads the APKs as artifacts. This exists because local
+# builds OOM the dev box: rustc peaked at ~17GB RSS and the kernel oom-killer
+# hung the machine (2026-07-10). Hosted runners have 16GB RAM — the swapfile
+# step below absorbs the rustc peak — and the job fits the 6h limit.
+#
+# Trigger: manual dispatch, or push to an android/** branch.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['android/**']
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-arm64:
+    name: GeckoView + Fenix arm64 APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout (with settings submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Free disk space (drop preinstalled toolchains we don't use)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force >/dev/null 2>&1 || true
+          df -h /
+
+      - name: Add 16GB swap (single rustc crate peaks ~17GB)
+        run: |
+          # The runner image ships an active 4GB /mnt/swapfile — replace it.
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile
+          sudo fallocate -l 16G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            make python3 python3-pip curl gnupg unzip zip patch xz-utils tar rsync
+
+      - name: Ensure rustup (runner images no longer ship Rust)
+        run: |
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          fi
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Read pinned Firefox version
+        id: ver
+        run: |
+          echo "version=$(cat version)" >> "$GITHUB_OUTPUT"
+          echo "release=$(cat release)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Firefox source tarball
+        uses: actions/cache@v4
+        with:
+          path: firefox-${{ steps.ver.outputs.version }}.source.tar.xz
+          key: ff-src-${{ steps.ver.outputs.version }}
+
+      - name: Fetch Firefox source (curl + gpg verify)
+        run: make fetch
+
+      - name: Extract + apply all patches + Neonwolf overlay (make dir)
+        run: make dir
+
+      - name: Bootstrap Android toolchain (mach bootstrap)
+        run: |
+          cd neonwolf-${{ steps.ver.outputs.version }}-${{ steps.ver.outputs.release }}
+          ./mach --no-interactive bootstrap --application-choice=mobile_android
+          rustup target add aarch64-linux-android
+
+      - name: Build (make build-android)
+        run: make build-android
+
+      - name: Collect APKs
+        run: |
+          make package-android
+          ls -lh dist-android/
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: neonwolf-android-arm64-${{ steps.ver.outputs.version }}-${{ steps.ver.outputs.release }}
+          path: dist-android/*.apk
+          if-no-files-found: error
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-log
+          path: android-build.log
+          if-no-files-found: ignore

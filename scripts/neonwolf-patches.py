@@ -157,6 +157,23 @@ def neonwolf_patches():
     require_file('../assets/adblock/easylist.txt', 'adblock filter lists')
     exec('python3 ../scripts/gen-adblock-dump.py ../assets/adblock .')
 
+    # Android: append Neonwolf GeckoView privacy defaults (native blocker, FPP,
+    # Mullvad TRR, RS dump allowlist for content-classifier-lists). Desktop
+    # uses autoconfig (librewolf.cfg + overrides); GV uses geckoview-prefs.js.
+    gv_prefs = 'mobile/android/app/geckoview-prefs.js'
+    nw_gv_prefs = '../assets/android/neonwolf-geckoview-prefs.js'
+    if os.path.isfile(gv_prefs) and os.path.isfile(nw_gv_prefs):
+        with open(gv_prefs, 'r') as f:
+            existing = f.read()
+        if 'Neonwolf Android privacy defaults' not in existing and '=== Neonwolf Android' not in existing:
+            with open(gv_prefs, 'a') as f:
+                f.write('\n')
+                with open(nw_gv_prefs, 'r') as src:
+                    f.write(src.read())
+            print('appended: Neonwolf GeckoView prefs -> {}'.format(gv_prefs))
+        else:
+            print('skip: Neonwolf GeckoView prefs already present')
+
     # read lines of .txt file into 'patches'
     with open('../assets/patches.txt'.format(version), "r") as f:
         for line in f.readlines():

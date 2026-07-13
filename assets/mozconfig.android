@@ -1,0 +1,56 @@
+# Neonwolf Android / GeckoView — full source build (NOT artifact mode).
+# Artifact mode would pull stock Mozilla Gecko and drop native uBO / content-classifier.
+# Keep desktop mozconfig untouched; this file is copied to the tree as mozconfig
+# only for Android builds (see Makefile android targets).
+
+# Separate objdir so we never clobber the desktop Linux build.
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android
+
+ac_add_options --enable-project=mobile/android
+
+# arm64 first for physical devices; also build x86_64 for emulator later via
+# a second mozconfig if needed. Default host-arch is fine for emulator smoke;
+# pin aarch64 for phone APKs.
+ac_add_options --target=aarch64
+
+# NOTE: --enable-geckoview-lite was dropped: Fenix consumes the full GeckoView
+# artifact (its Glean integration expects it; lite is for third-party
+# embedders). Telemetry is disabled via geckoview-prefs + the Fenix
+# liberation work instead.
+
+# End product: Fenix shell. For earliest engine smoke use:
+#   ac_add_options --enable-android-subproject=geckoview_example
+ac_add_options --enable-android-subproject=fenix
+# Allow attach/debug on release-optimized GV (local night builds)
+ac_add_options --enable-android-debuggable
+
+ac_add_options --disable-crashreporter
+ac_add_options --disable-debug
+ac_add_options --disable-tests
+ac_add_options --disable-updater
+ac_add_options --disable-cargo-incremental
+ac_add_options --enable-hardening
+ac_add_options --enable-optimize
+ac_add_options --enable-release
+ac_add_options --enable-rust-simd
+ac_add_options --enable-bootstrap
+
+ac_add_options --with-app-name=neonwolf
+
+# Branding: desktop branding path may not apply 1:1 on mobile; Fenix branding
+# is patched under mobile/android. Keep name identity here for Gecko strings.
+# ac_add_options --with-branding=mobile/android/branding/neonwolf
+
+export MOZ_TELEMETRY_REPORTING=
+export MOZ_REQUIRE_SIGNING=
+export MOZILLA_OFFICIAL=1
+
+mk_add_options MOZ_CRASHREPORTER=0
+mk_add_options MOZ_DATA_REPORTING=0
+mk_add_options MOZ_SERVICES_HEALTHREPORT=0
+mk_add_options MOZ_TELEMETRY_REPORTING=0
+
+# Toolchain roots (mach bootstrap installs these under ~/.mozbuild).
+# Override if your SDK/NDK live elsewhere.
+# ac_add_options --with-android-sdk=$HOME/.mozbuild/android-sdk-linux
+# ac_add_options --with-android-ndk=$HOME/.mozbuild/android-ndk-r29
