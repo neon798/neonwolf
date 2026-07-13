@@ -434,3 +434,39 @@ menupopup menuitem:hover {
   -moz-context-properties: fill;
   fill: var(--neonwolf-accent-cyan) !important;
 }
+
+/* Update-available banner */
+#neonwolf-update-banner {
+  background: linear-gradient(90deg, var(--neonwolf-bg-mid), var(--neonwolf-bg-dark)) !important;
+  border-bottom: 1px solid var(--neonwolf-border-cyan) !important;
+  padding: 6px 12px !important;
+  gap: 12px !important;
+}
+
+.neonwolf-update-banner-text {
+  color: var(--neonwolf-text-primary) !important;
+  font-size: 12px !important;
+}
+
+.neonwolf-update-banner-link {
+  color: var(--neonwolf-accent-cyan) !important;
+  cursor: pointer !important;
+  font-weight: bold !important;
+  text-decoration: underline !important;
+}
+
+.neonwolf-update-banner-link:hover {
+  color: var(--neonwolf-accent-pink) !important;
+}
+
+.neonwolf-update-banner-close {
+  list-style-image: none !important;
+  -moz-context-properties: fill;
+  fill: var(--neonwolf-text-dim) !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+}
+
+.neonwolf-update-banner-close:hover {
+  fill: var(--neonwolf-accent-pink) !important;
+}

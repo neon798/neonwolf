@@ -1,0 +1,18 @@
+diff --git a/toolkit/components/resistfingerprinting/nsRFPService.cpp b/toolkit/components/resistfingerprinting/nsRFPService.cpp
+--- a/toolkit/components/resistfingerprinting/nsRFPService.cpp
++++ b/toolkit/components/resistfingerprinting/nsRFPService.cpp
+@@ -1060,7 +1060,13 @@
+ 
+ /* static */
+ nsCString nsRFPService::GetSpoofedJSTimeZone() {
+-  return "Atlantic/Reykjavik"_ns;
++  // Neonwolf: spoof a populous real timezone instead of RFP's UTC default
++  // (Atlantic/Reykjavik). Paired with the en-US locale spoof above, US Eastern
++  // is an internally-consistent, high-traffic profile; an en-US + Asia/Europe
++  // pairing would be self-contradictory and thus easier to fingerprint. Change
++  // this single constant to retarget (e.g. "Asia/Shanghai" UTC+8 for the
++  // largest global bucket). See docs/spoofing-research.md.
++  return "America/New_York"_ns;
+ }
+ 
+ // ============================================================================

@@ -1,0 +1,416 @@
+# Neonwolf: native cosmetic ad filtering on the bundled content-classifier
+# (adblock-rust) engine.
+#
+# Exposes per-URL element-hiding selectors from the engine through a new
+# scriptable service method and injects them into documents as an agent
+# stylesheet via a JSWindowActor, hiding ad/tracker elements with no extension.
+#
+# Chain: Rust FFI (url_cosmetic_resources) -> ContentClassifierService selector
+# aggregation/dedup -> nsIContentClassifierService.getCosmeticHideSelectors ->
+# @mozilla.org/content-classifier-service;1 -> CosmeticFilter parent/child actor
+# -> windowUtils.loadSheetUsingURIString(AGENT_SHEET).
+#
+# Depends on the content-classifier blocking infra (see rs-blocker.patch) being
+# present; lists must be loaded for selectors to be produced.
+diff -ruN a/toolkit/actors/CosmeticFilterChild.sys.mjs b/toolkit/actors/CosmeticFilterChild.sys.mjs
+--- a/toolkit/actors/CosmeticFilterChild.sys.mjs
++++ b/toolkit/actors/CosmeticFilterChild.sys.mjs
+@@ -0,0 +1,43 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++// Neonwolf cosmetic filtering: on document creation, ask the parent for the
++// element-hiding selectors that apply to this document's URL and inject them
++// as an agent stylesheet so ad/tracker elements are hidden before paint.
++export class CosmeticFilterChild extends JSWindowActorChild {
++  async handleEvent(event) {
++    if (event.type !== "DOMDocElementInserted") {
++      return;
++    }
++
++    const window = this.contentWindow;
++    const uri = this.document?.documentURIObject;
++    if (!window || !uri || !(uri.schemeIs("http") || uri.schemeIs("https"))) {
++      return;
++    }
++
++    let selectors;
++    try {
++      selectors = await this.sendQuery("GetCosmeticHideSelectors", {
++        url: uri.spec,
++      });
++    } catch (e) {
++      return;
++    }
++
++    if (!selectors?.length || Cu.isDeadWrapper(window)) {
++      return;
++    }
++
++    const css =
++      "data:text/css," +
++      encodeURIComponent(selectors.join(",\n") + "{display:none!important}");
++    try {
++      window.windowUtils.loadSheetUsingURIString(
++        css,
++        window.windowUtils.AGENT_SHEET
++      );
++    } catch (e) {}
++  }
++}
+diff -ruN a/toolkit/actors/CosmeticFilterParent.sys.mjs b/toolkit/actors/CosmeticFilterParent.sys.mjs
+--- a/toolkit/actors/CosmeticFilterParent.sys.mjs
++++ b/toolkit/actors/CosmeticFilterParent.sys.mjs
+@@ -0,0 +1,22 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++// Neonwolf cosmetic filtering: parent-side bridge between content documents and
++// the native content-classifier service, which owns the adblock-rust engines.
++export class CosmeticFilterParent extends JSWindowActorParent {
++  receiveMessage(message) {
++    if (message.name !== "GetCosmeticHideSelectors") {
++      return [];
++    }
++
++    try {
++      const service = Cc[
++        "@mozilla.org/content-classifier-service;1"
++      ].getService(Ci.nsIContentClassifierService);
++      return service.getCosmeticHideSelectors(message.data.url);
++    } catch (e) {
++      return [];
++    }
++  }
++}
+diff -ruN a/toolkit/actors/moz.build b/toolkit/actors/moz.build
+--- a/toolkit/actors/moz.build
++++ b/toolkit/actors/moz.build
+@@ -46,6 +46,8 @@
+     "ContentMetaParent.sys.mjs",
+     "ControllersChild.sys.mjs",
+     "ControllersParent.sys.mjs",
++    "CosmeticFilterChild.sys.mjs",
++    "CosmeticFilterParent.sys.mjs",
+     "ExtFindChild.sys.mjs",
+     "FindBarChild.sys.mjs",
+     "FindBarParent.sys.mjs",
+diff -ruN a/toolkit/components/content-classifier/ContentClassifierService.cpp b/toolkit/components/content-classifier/ContentClassifierService.cpp
+--- a/toolkit/components/content-classifier/ContentClassifierService.cpp
++++ b/toolkit/components/content-classifier/ContentClassifierService.cpp
+@@ -347,6 +347,18 @@
+   return do_AddRef(sInstance);
+ }
+ 
++// static
++already_AddRefed<ContentClassifierService>
++ContentClassifierService::GetServiceSingleton() {
++  if (!sInstance) {
++    sInstance = new ContentClassifierService();
++    ClearOnShutdown(&sInstance);
++    sInstance->Init();
++  }
++
++  return do_AddRef(sInstance);
++}
++
+ already_AddRefed<nsIAsyncShutdownClient>
+ ContentClassifierService::GetAsyncShutdownBarrier() const {
+   nsCOMPtr<nsIAsyncShutdownService> svc = components::AsyncShutdown::Service();
+@@ -554,6 +566,34 @@
+   return NS_OK;
+ }
+ 
++NS_IMETHODIMP ContentClassifierService::GetCosmeticHideSelectors(
++    const nsACString& aUrl, nsTArray<nsCString>& aRetVal) {
++  aRetVal.Clear();
++
++  MutexAutoLock lock(mLock);
++  if (mInitPhase != InitPhase::InitSucceeded) {
++    return NS_OK;
++  }
++
++  nsTHashSet<nsCString> seen;
++  for (const auto& engine : mBlockEngines) {
++    nsTArray<nsCString> selectors;
++    if (NS_FAILED(engine->GetCosmeticHideSelectors(aUrl, selectors))) {
++      continue;
++    }
++    for (auto& selector : selectors) {
++      if (seen.EnsureInserted(selector)) {
++        aRetVal.AppendElement(selector);
++      }
++    }
++  }
++
++  MOZ_LOG_FMT(gContentClassifierLog, LogLevel::Debug,
++              "GetCosmeticHideSelectors - url={} count={}", aUrl,
++              aRetVal.Length());
++  return NS_OK;
++}
++
+ // Parses a byte buffer of adblock-format filter list text into rules.
+ // Tolerates both LF and CRLF line endings; skips empty lines.
+ static void ParseFilterListRules(const nsTArray<uint8_t>& aData,
+diff -ruN a/toolkit/components/content-classifier/ContentClassifierService.h b/toolkit/components/content-classifier/ContentClassifierService.h
+--- a/toolkit/components/content-classifier/ContentClassifierService.h
++++ b/toolkit/components/content-classifier/ContentClassifierService.h
+@@ -16,6 +16,7 @@
+ #include "nsISupportsImpl.h"
+ #include "nsTArray.h"
+ #include "nsTHashMap.h"
++#include "nsTHashSet.h"
+ 
+ #include "mozilla/ContentClassifierEngine.h"
+ 
+@@ -40,6 +41,12 @@
+ 
+   static already_AddRefed<ContentClassifierService> GetInstance();
+ 
++  // Like GetInstance(), but always returns the (lazily created) singleton
++  // regardless of the enabled/initialized gate, so it can back the
++  // @mozilla.org/content-classifier-service;1 XPCOM contract. The scriptable
++  // methods themselves return empty/no-op results when not initialized.
++  static already_AddRefed<ContentClassifierService> GetServiceSingleton();
++
+   static bool IsEnabled();
+   static bool IsInitialized();
+ 
+diff -ruN a/toolkit/components/content-classifier/components.conf b/toolkit/components/content-classifier/components.conf
+--- a/toolkit/components/content-classifier/components.conf
++++ b/toolkit/components/content-classifier/components.conf
+@@ -13,4 +13,13 @@
+         'singleton': True,
+         'processes': ProcessSelector.MAIN_PROCESS_ONLY,
+     },
++    {
++        'cid': '{d3aa96d2-2ec1-4027-a8dd-57bfbd87eb3f}',
++        'contract_ids': ['@mozilla.org/content-classifier-service;1'],
++        'type': 'mozilla::ContentClassifierService',
++        'headers': ['/toolkit/components/content-classifier/ContentClassifierService.h'],
++        'constructor': 'mozilla::ContentClassifierService::GetServiceSingleton',
++        'singleton': True,
++        'processes': ProcessSelector.MAIN_PROCESS_ONLY,
++    },
+ ]
+diff -ruN a/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h b/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h
+--- a/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h
++++ b/toolkit/components/content-classifier/content_classifier_engine/ContentClassifierEngine.h
+@@ -86,6 +86,16 @@
+     return content_classifier_engine_from_rules(&aRules, &mEngine);
+   }
+ 
++  // Neonwolf cosmetic filtering: collect element-hiding selectors for aUrl.
++  nsresult GetCosmeticHideSelectors(const nsACString& aUrl,
++                                    nsTArray<nsCString>& aOut) {
++    if (!mEngine) {
++      return NS_ERROR_NOT_AVAILABLE;
++    }
++    return content_classifier_engine_cosmetic_hide_selectors(mEngine, &aUrl,
++                                                             &aOut);
++  }
++
+   ContentClassifierResult CheckNetworkRequest(
+       const ContentClassifierRequest& aRequest);
+ 
+diff -ruN a/toolkit/components/content-classifier/content_classifier_engine/src/lib.rs b/toolkit/components/content-classifier/content_classifier_engine/src/lib.rs
+--- a/toolkit/components/content-classifier/content_classifier_engine/src/lib.rs
++++ b/toolkit/components/content-classifier/content_classifier_engine/src/lib.rs
+@@ -76,6 +76,27 @@
+     }
+ }
+ 
++// Neonwolf cosmetic filtering: return the element-hiding ("##") selectors that
++// apply to aUrl, so the front-end can inject a display:none stylesheet.
++#[no_mangle]
++pub unsafe extern "C" fn content_classifier_engine_cosmetic_hide_selectors(
++    engine: *const ContentClassifierFFIEngine,
++    url: &nsACString,
++    out_selectors: &mut ThinVec<nsCString>,
++) -> nsresult {
++    if engine.is_null() {
++        return NS_ERROR_INVALID_ARG;
++    }
++    let engine = &(*engine).engine;
++    let url_str = String::from_utf8_lossy(url.as_ref()).to_string();
++    let resources = engine.url_cosmetic_resources(&url_str);
++    out_selectors.clear();
++    for selector in resources.hide_selectors {
++        out_selectors.push(nsCString::from(selector));
++    }
++    NS_OK
++}
++
+ #[no_mangle]
+ pub unsafe extern "C" fn content_classifier_engine_check_network_request_preparsed(
+     engine: *const ContentClassifierFFIEngine,
+diff -ruN a/toolkit/components/content-classifier/nsIContentClassifierService.idl b/toolkit/components/content-classifier/nsIContentClassifierService.idl
+--- a/toolkit/components/content-classifier/nsIContentClassifierService.idl
++++ b/toolkit/components/content-classifier/nsIContentClassifierService.idl
+@@ -8,7 +8,7 @@
+  * Interface for the content classifier service, allowing JS code to
+  * provide filter list data (e.g. from RemoteSettings).
+  */
+-[scriptable, uuid(1AFC121B-6849-4BA4-A515-C7E91F20D0DC)]
++[scriptable, uuid(3d19968d-4d03-4969-a1f0-5a553e229a32)]
+ interface nsIContentClassifierService : nsISupports {
+     /**
+      * Store filter list data for a named list. The data is the raw
+@@ -28,6 +28,13 @@
+      * which lists to use for blocking and annotation.
+      */
+     void applyFilterLists();
++
++    /**
++     * Return the deduplicated set of element-hiding (cosmetic) selectors
++     * that the active block engines produce for aUrl. Empty when the
++     * service is not initialized or no engine yields selectors.
++     */
++    Array<ACString> getCosmeticHideSelectors(in AUTF8String aUrl);
+ };
+ 
+ %{C++
+diff -ruN a/toolkit/components/content-classifier/test/browser/browser.toml b/toolkit/components/content-classifier/test/browser/browser.toml
+--- a/toolkit/components/content-classifier/test/browser/browser.toml
++++ b/toolkit/components/content-classifier/test/browser/browser.toml
+@@ -2,10 +2,14 @@
+ support-files = [
+   "head.js",
+   "page.html",
++  "cosmetic_page.html",
+   "block_list.txt",
+   "annotate_list.txt",
++  "cosmetic_list.txt",
+ ]
+ 
+ ["browser_content_classifier_blocking.js"]
+ 
++["browser_content_classifier_cosmetic.js"]
++
+ ["browser_content_classifier_remote_settings.js"]
+diff -ruN a/toolkit/components/content-classifier/test/browser/browser_content_classifier_cosmetic.js b/toolkit/components/content-classifier/test/browser/browser_content_classifier_cosmetic.js
+--- a/toolkit/components/content-classifier/test/browser/browser_content_classifier_cosmetic.js
++++ b/toolkit/components/content-classifier/test/browser/browser_content_classifier_cosmetic.js
+@@ -0,0 +1,79 @@
++"use strict";
++
++const COSMETIC_LIST_URL =
++  "https://example.net/" + TEST_PATH + "cosmetic_list.txt";
++const COSMETIC_PAGE = TEST_DOMAIN + TEST_PATH + "cosmetic_page.html";
++
++const COSMETIC_PREFS = {
++  set: [
++    ["privacy.trackingprotection.content.testing", true],
++    ["privacy.trackingprotection.content.protection.enabled", true],
++    [
++      "privacy.trackingprotection.content.protection.test_list_urls",
++      COSMETIC_LIST_URL,
++    ],
++    ["privacy.trackingprotection.content.annotation.enabled", false],
++    ["privacy.trackingprotection.content.annotation.test_list_urls", ""],
++  ],
++};
++
++// Validates the native chain: Rust FFI (url_cosmetic_resources) ->
++// ContentClassifierService selector aggregation -> scriptable IDL.
++add_task(async function test_cosmetic_selectors_via_service() {
++  let listsLoaded = TestUtils.topicObserved(LISTS_LOADED_TOPIC);
++  await SpecialPowers.pushPrefEnv(COSMETIC_PREFS);
++
++  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, TEST_TOP_PAGE);
++  await listsLoaded;
++
++  let service = Cc["@mozilla.org/content-classifier-service;1"].getService(
++    Ci.nsIContentClassifierService
++  );
++  let selectors = service.getCosmeticHideSelectors("https://example.net/");
++  ok(
++    selectors.includes(".neonwolf-test-ad"),
++    "Service returns the domain-specific cosmetic selector, got: [" +
++      selectors.join(", ") +
++      "]"
++  );
++
++  BrowserTestUtils.removeTab(tab);
++});
++
++// Validates the JSActor end-to-end: CosmeticFilterChild queries the parent on
++// document creation and injects an agent sheet that hides the matched element.
++add_task(async function test_cosmetic_actor_hides_element() {
++  let listsLoaded = TestUtils.topicObserved(LISTS_LOADED_TOPIC);
++  await SpecialPowers.pushPrefEnv(COSMETIC_PREFS);
++
++  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, COSMETIC_PAGE);
++  let browser = tab.linkedBrowser;
++  await listsLoaded;
++
++  // Reload now that engines are built, so the actor queries a populated service.
++  BrowserTestUtils.startLoadingURIString(browser, COSMETIC_PAGE);
++  await BrowserTestUtils.browserLoaded(browser);
++
++  await SpecialPowers.spawn(browser, [], async () => {
++    await ContentTaskUtils.waitForCondition(() => {
++      let el = content.document.querySelector(".neonwolf-test-ad");
++      return el && content.getComputedStyle(el).display === "none";
++    }, "injected agent sheet should hide .neonwolf-test-ad");
++
++    let ad = content.document.querySelector(".neonwolf-test-ad");
++    Assert.equal(
++      content.getComputedStyle(ad).display,
++      "none",
++      "ad element is hidden by cosmetic filtering"
++    );
++
++    let real = content.document.querySelector(".content");
++    Assert.notEqual(
++      content.getComputedStyle(real).display,
++      "none",
++      "non-matching content is left visible"
++    );
++  });
++
++  BrowserTestUtils.removeTab(tab);
++});
+diff -ruN a/toolkit/components/content-classifier/test/browser/cosmetic_list.txt b/toolkit/components/content-classifier/test/browser/cosmetic_list.txt
+--- a/toolkit/components/content-classifier/test/browser/cosmetic_list.txt
++++ b/toolkit/components/content-classifier/test/browser/cosmetic_list.txt
+@@ -0,0 +1 @@
++example.net##.neonwolf-test-ad
+diff -ruN a/toolkit/components/content-classifier/test/browser/cosmetic_page.html b/toolkit/components/content-classifier/test/browser/cosmetic_page.html
+--- a/toolkit/components/content-classifier/test/browser/cosmetic_page.html
++++ b/toolkit/components/content-classifier/test/browser/cosmetic_page.html
+@@ -0,0 +1,8 @@
++<!DOCTYPE html>
++<html>
++<head><title>Cosmetic Filtering Test</title></head>
++<body>
++  <div class="neonwolf-test-ad" style="display:block">ad placeholder</div>
++  <div class="content">real content</div>
++</body>
++</html>
+diff -ruN a/toolkit/modules/ActorManagerParent.sys.mjs b/toolkit/modules/ActorManagerParent.sys.mjs
+--- a/toolkit/modules/ActorManagerParent.sys.mjs
++++ b/toolkit/modules/ActorManagerParent.sys.mjs
+@@ -133,6 +133,20 @@
+     allFrames: true,
+   },
+ 
++  CosmeticFilter: {
++    parent: {
++      esModuleURI: "resource://gre/actors/CosmeticFilterParent.sys.mjs",
++    },
++    child: {
++      esModuleURI: "resource://gre/actors/CosmeticFilterChild.sys.mjs",
++      events: {
++        DOMDocElementInserted: {},
++      },
++    },
++    allFrames: true,
++    messageManagerGroups: ["browsers"],
++  },
++
+   AudioPlayback: {
+     parent: {
+       esModuleURI: "resource://gre/actors/AudioPlaybackParent.sys.mjs",

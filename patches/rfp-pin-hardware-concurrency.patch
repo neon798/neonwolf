@@ -1,0 +1,14 @@
+diff --git a/dom/workers/RuntimeService.cpp b/dom/workers/RuntimeService.cpp
+--- a/dom/workers/RuntimeService.cpp
++++ b/dom/workers/RuntimeService.cpp
+@@ -2009,6 +2009,10 @@
+   // so spoof navigator.hardwareConcurrency = 4 to reduce user uniqueness. On
+   // OSX, the majority of Macs have 8 cores.
+   if (MOZ_UNLIKELY(aRFPHardcoded)) {
++    // Neonwolf: pin the RFP hardwareConcurrency spoof to common values (4 on
++    // desktop, 8 on macOS). FF152 already returns these, so this is a defensive
++    // anchor -- if upstream changes the spoofed value, this patch fails to apply
++    // and CI flags it. Review docs/spoofing-research.md before re-fuzzing.
+ #ifdef XP_MACOSX
+     return 8;
+ #else

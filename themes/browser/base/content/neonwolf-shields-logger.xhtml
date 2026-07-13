@@ -1,0 +1,99 @@
+<?xml version="1.0"?> <!-- -*- Mode: HTML -*- -->
+
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+
+<?xml-stylesheet href="chrome://global/skin/global.css" type="text/css"?>
+<?xml-stylesheet href="chrome://browser/content/neonwolf-shields.css" type="text/css"?>
+
+<window xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+        xmlns:html="http://www.w3.org/1999/xhtml"
+        id="neonwolf-shields-logger-window"
+        windowtype="neonwolf:shields-logger"
+        title="Neonwolf Shields Logger"
+        width="960"
+        height="640">
+
+  <script src="chrome://browser/content/neonwolf-shields-logger.js"/>
+
+  <vbox id="neonwolf-logger-root" class="neonwolf-logger" flex="1">
+    <vbox id="neonwolf-logger-header" class="neonwolf-logger-header">
+      <label class="neonwolf-logger-title" value="Neonwolf Shields Logger"/>
+      <label class="neonwolf-logger-subtitle"
+             value="Live audit trail of native blocking decisions"/>
+    </vbox>
+
+    <hbox id="neonwolf-logger-toolbar" class="neonwolf-logger-toolbar" align="center">
+      <search-textbox id="neonwolf-logger-filter"
+                      class="neonwolf-logger-filter"
+                      placeholder="Filter site, URL, or rule…"
+                      flex="1"/>
+      <menulist id="neonwolf-logger-action-filter"
+                class="neonwolf-logger-action-filter">
+        <menupopup>
+          <menuitem label="All actions" value="all"/>
+          <menuitem label="Blocked" value="blocked"/>
+          <menuitem label="Redirected" value="redirected"/>
+          <menuitem label="Allowed" value="allowed"/>
+        </menupopup>
+      </menulist>
+      <checkbox id="neonwolf-logger-follow"
+                class="neonwolf-logger-follow"
+                label="Follow"
+                checked="true"/>
+      <button id="neonwolf-logger-copy" class="neonwolf-logger-btn" label="Copy"/>
+      <button id="neonwolf-logger-pause" class="neonwolf-logger-btn" label="Pause"/>
+      <button id="neonwolf-logger-clear" class="neonwolf-logger-btn" label="Clear"/>
+    </hbox>
+
+    <hbox id="neonwolf-logger-stats" class="neonwolf-logger-stats" align="center">
+      <label id="neonwolf-logger-stat-total" class="neonwolf-logger-stat"/>
+      <label id="neonwolf-logger-stat-actions" class="neonwolf-logger-stat"/>
+      <label id="neonwolf-logger-stat-top-site" class="neonwolf-logger-stat"/>
+    </hbox>
+
+    <hbox id="neonwolf-logger-columns" class="neonwolf-logger-columns" align="center">
+      <label id="neonwolf-logger-header-time"
+             class="neonwolf-logger-col neonwolf-logger-col-time neonwolf-logger-col-header-sortable"
+             value="Time"/>
+      <label id="neonwolf-logger-header-site"
+             class="neonwolf-logger-col neonwolf-logger-col-site neonwolf-logger-col-header-sortable"
+             value="Site"/>
+      <label class="neonwolf-logger-col neonwolf-logger-col-url" value="URL"/>
+      <label class="neonwolf-logger-col neonwolf-logger-col-type" value="Type"/>
+      <label id="neonwolf-logger-header-action"
+             class="neonwolf-logger-col neonwolf-logger-col-action neonwolf-logger-col-header-sortable"
+             value="Action"/>
+      <label class="neonwolf-logger-col neonwolf-logger-col-rule" value="Rule / List"/>
+    </hbox>
+
+    <scrollbox id="neonwolf-logger-scroll" class="neonwolf-logger-scroll" flex="1">
+      <vbox id="neonwolf-logger-list" class="neonwolf-logger-list"/>
+    </scrollbox>
+
+    <vbox id="neonwolf-logger-empty" class="neonwolf-logger-empty">
+      <label class="neonwolf-logger-empty-title"
+             value="No entries yet"/>
+      <label class="neonwolf-logger-empty-hint"
+             value="Browse the web with Shields up. Blocked, redirected, and allowed requests will appear here once the backend observer is active."/>
+    </vbox>
+
+    <vbox id="neonwolf-logger-drawer" class="neonwolf-logger-drawer" hidden="true">
+      <hbox class="neonwolf-logger-drawer-header" align="center">
+        <label class="neonwolf-logger-drawer-title" value="Entry details"/>
+        <spacer flex="1"/>
+        <button id="neonwolf-logger-drawer-copy" class="neonwolf-logger-btn" label="Copy entry"/>
+        <button id="neonwolf-logger-drawer-close" class="neonwolf-logger-btn" label="Close"/>
+      </hbox>
+      <scrollbox id="neonwolf-logger-drawer-scroll" class="neonwolf-logger-drawer-scroll" flex="1">
+        <vbox id="neonwolf-logger-drawer-fields" class="neonwolf-logger-drawer-fields"/>
+      </scrollbox>
+    </vbox>
+
+    <hbox id="neonwolf-logger-status" class="neonwolf-logger-status" align="center">
+      <label id="neonwolf-logger-status-label" class="neonwolf-logger-status-label"
+             value="0 entries"/>
+    </hbox>
+  </vbox>
+</window>

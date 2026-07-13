@@ -1,7 +1,7 @@
 docker_targets=docker-build-image docker-run-build-job docker-remove-image
 woodpecker_targets=fetch-upstream-woodpecker check-patchfail-woodpecker
 testing_targets=full-test test test-linux test-macos test-windows
-.PHONY : help moztree check all clean veryclean distclean patches dir bootstrap fetch build package run update setup-wasi check-patchfail check-fuzz fixfuzz $(docker_targets) $(woodpecker_targets) $(testing_targets)
+.PHONY : help moztree check all clean veryclean distclean patches dir bootstrap fetch build build-tests scorecard package run update setup-wasi check-patchfail check-fuzz fixfuzz $(docker_targets) $(woodpecker_targets) $(testing_targets)
 
 version:=$(shell cat ./version)
 release:=$(shell cat ./release)
@@ -180,6 +180,21 @@ dir : $(lw_source_dir)
 
 build : $(lw_source_dir)
 	(cd $(lw_source_dir) && ./mach build)
+
+# tests-enabled build. The dist build ships --disable-tests, so the in-tree
+# mochitests captured in patches/native-cosmetic-filtering.patch (and future
+# native features) cannot run there. This appends --enable-tests (later
+# ac_add_options wins) so `./mach test ...` works against the tree.
+build-tests : $(lw_source_dir)
+	grep -q -- '--enable-tests' $(lw_source_dir)/mozconfig || echo 'ac_add_options --enable-tests' >> $(lw_source_dir)/mozconfig
+	(cd $(lw_source_dir) && ./mach build)
+
+# Capture a privacy scorecard from the built binary (see scripts/validate/).
+# Override the run label with LABEL=..., e.g. `make scorecard LABEL=baseline-pre-M1`.
+scorecard :
+	python3 scripts/validate/run_scorecard.py \
+	  --binary $(lw_source_dir)/obj-x86_64-pc-linux-gnu/dist/bin/neonwolf \
+	  --label $(or $(LABEL),adhoc)
 
 package :
 	(cd $(lw_source_dir) && cat browser/locales/shipped-locales | xargs ./mach package-multi-locale --locales)

@@ -1,0 +1,224 @@
+diff -ruN a/browser/base/jar.mn b/browser/base/jar.mn
+--- a/browser/base/jar.mn
++++ b/browser/base/jar.mn
+@@ -89,6 +89,23 @@
+         content/browser/navigator-toolbox.js                (content/navigator-toolbox.js)
+         content/browser/nsContextMenu.sys.mjs               (content/nsContextMenu.sys.mjs)
+         content/browser/contentTheme.js                     (content/contentTheme.js)
++        content/browser/neonwolf-shields.css                (content/neonwolf-shields.css)
++        content/browser/neonwolf-shields-panel.js           (content/neonwolf-shields-panel.js)
++        content/browser/neonwolf-shields.xhtml              (content/neonwolf-shields.xhtml)
++        content/browser/neonwolf-shields-logger.xhtml       (content/neonwolf-shields-logger.xhtml)
++        content/browser/neonwolf-shields-logger.js          (content/neonwolf-shields-logger.js)
++        content/browser/neonwolf-shields-stats.xhtml        (content/neonwolf-shields-stats.xhtml)
++        content/browser/neonwolf-shields-stats.js           (content/neonwolf-shields-stats.js)
++        content/browser/neonwolf-shields-filters.xhtml      (content/neonwolf-shields-filters.xhtml)
++        content/browser/neonwolf-shields-filters.js         (content/neonwolf-shields-filters.js)
++        content/browser/neonwolf-shields-lists.xhtml        (content/neonwolf-shields-lists.xhtml)
++        content/browser/neonwolf-shields-lists.js           (content/neonwolf-shields-lists.js)
++        content/browser/neonwolf-update-banner.js           (content/neonwolf-update-banner.js)
++        content/browser/neonwolf-element-picker.js          (content/neonwolf-element-picker.js)
++        content/browser/neonwolf-element-picker-content.js  (content/neonwolf-element-picker-content.js)
++        content/browser/NeonwolfUpdateCheck.sys.mjs         (content/NeonwolfUpdateCheck.sys.mjs)
++        content/browser/icons/neonwolf-shields-up.svg       (content/icons/neonwolf-shields-up.svg)
++        content/browser/icons/neonwolf-shields-down.svg     (content/icons/neonwolf-shields-down.svg)
+ #ifdef XP_MACOSX
+ *       content/browser/hiddenWindowMac.xhtml         (content/hiddenWindowMac.xhtml)
+         content/browser/nonbrowser-mac.js             (content/nonbrowser-mac.js)
+diff -ruN a/browser/base/content/browser.xhtml b/browser/base/content/browser.xhtml
+--- a/browser/base/content/browser.xhtml
++++ b/browser/base/content/browser.xhtml
+@@ -49,6 +49,7 @@
+   <link rel="stylesheet" href="chrome://browser/skin/translations/panel.css" />
+   <link rel="stylesheet" href="chrome://browser/skin/places/tree-icons.css" />
+   <link rel="stylesheet" href="chrome://browser/skin/places/editBookmark.css" />
++  <link rel="stylesheet" href="chrome://browser/content/neonwolf-shields.css" />
+   <link
+     rel="stylesheet"
+     href="chrome://global/content/resistfingerprinting/letterboxing.css"
+@@ -102,6 +103,9 @@
+ 
+   <script src="chrome://browser/content/global-scripts.js"></script>
+   <script src="chrome://browser/content/browser-main.js"></script>
++  <script src="chrome://browser/content/neonwolf-element-picker.js"></script>
++  <script src="chrome://browser/content/neonwolf-shields-panel.js"></script>
++  <script src="chrome://browser/content/neonwolf-update-banner.js"></script>
+ </head>
+ <html:body xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+ # All sets except for popupsets (commands, keys, and stringbundles)
+diff -ruN a/browser/base/content/main-popupset.inc.xhtml b/browser/base/content/main-popupset.inc.xhtml
+--- a/browser/base/content/main-popupset.inc.xhtml
++++ b/browser/base/content/main-popupset.inc.xhtml
+@@ -770,6 +770,7 @@
+ #include ../../components/controlcenter/content/permissionPanel.inc.xhtml
+ #include ../../components/controlcenter/content/trustPanel.inc.xhtml
+ #include ../../components/controlcenter/content/protectionsPanel.inc.xhtml
++#include neonwolf-shields.xhtml
+ #include ../../components/downloads/content/downloadsPanel.inc.xhtml
+ #include ../../components/translations/content/selectTranslationsPanel.inc.xhtml
+ #include ../../components/translations/content/fullPageTranslationsPanel.inc.xhtml
+diff -ruN a/browser/base/content/navigator-toolbox.inc.xhtml b/browser/base/content/navigator-toolbox.inc.xhtml
+--- a/browser/base/content/navigator-toolbox.inc.xhtml
++++ b/browser/base/content/navigator-toolbox.inc.xhtml
+@@ -225,6 +225,16 @@
+             </tooltip>
+           </box>
+
++          <!-- Neonwolf Shields per-site control button. Click/keypress are wired
++                in neonwolf-shields-panel.js (init), because the browser-window
++                CSP blocks inline on* handler attributes. -->
++          <box id="neonwolf-shields-button-container" align="center"
++                role="button"
++                tooltiptext="Neonwolf Shields"
++                urlbar-slot="site-info">
++            <image id="neonwolf-shields-button" shields="up"/>
++          </box>
++
+           <box id="identity-box"
+                 class="identity-box"
+                 pageproxystate="invalid"
+diff -ruN a/toolkit/actors/CosmeticFilterParent.sys.mjs b/toolkit/actors/CosmeticFilterParent.sys.mjs
+--- a/toolkit/actors/CosmeticFilterParent.sys.mjs
++++ b/toolkit/actors/CosmeticFilterParent.sys.mjs
+@@ -5,7 +5,45 @@
+ // Neonwolf cosmetic filtering: parent-side bridge between content documents and
+ // the native content-classifier service, which owns the adblock-rust engines.
+ export class CosmeticFilterParent extends JSWindowActorParent {
++  // Per-site Shields (M3): returns true when blocking is DISABLED for the
++  // top-level page, i.e. the "neonwolf-shields" permission is ALLOW on the top
++  // document's content principal. Mirrors the frontend contract.
++  _isShieldsDown() {
++    try {
++      let principal =
++        this.browsingContext?.top?.currentWindowGlobal
++          ?.contentBlockingAllowListPrincipal;
++      if (!principal || !principal.isContentPrincipal) {
++        return false;
++      }
++      return (
++        Services.perms.testPermissionFromPrincipal(
++          principal,
++          "neonwolf-shields"
++        ) == Services.perms.ALLOW_ACTION
++      );
++    } catch (e) {
++      return false;
++    }
++  }
++
++  _emptyResultFor(name) {
++    switch (name) {
++      case "GetCosmeticContext":
++        return {};
++      case "GetInjectedScript":
++        return "";
++      default:
++        return [];
++    }
++  }
++
+   receiveMessage(message) {
++    // Shields down for this site: skip all cosmetic/scriptlet work.
++    if (this._isShieldsDown()) {
++      return this._emptyResultFor(message.name);
++    }
++
+     let service;
+     try {
+       service = Cc["@mozilla.org/content-classifier-service;1"].getService(
+diff -ruN a/netwerk/url-classifier/AsyncUrlChannelClassifier.cpp b/netwerk/url-classifier/AsyncUrlChannelClassifier.cpp
+--- a/netwerk/url-classifier/AsyncUrlChannelClassifier.cpp
++++ b/netwerk/url-classifier/AsyncUrlChannelClassifier.cpp
+@@ -15,12 +15,15 @@
+ #include "mozilla/net/AsyncUrlChannelClassifier.h"
+ #include "mozilla/dom/BrowsingContext.h"
+ #include "mozilla/dom/CanonicalBrowsingContext.h"
++#include "mozilla/dom/WindowGlobalParent.h"
+ #include "mozilla/net/UrlClassifierCommon.h"
+ #include "mozilla/net/UrlClassifierFeatureFactory.h"
+ #include "mozilla/net/UrlClassifierFeatureResult.h"
+ #include "nsContentUtils.h"
+ #include "nsIChannel.h"
+ #include "nsIHttpChannel.h"
++#include "nsIPermissionManager.h"
++#include "nsIPrincipal.h"
+ #include "nsIUrlClassifierExceptionList.h"
+ #include "nsNetCID.h"
+ #include "nsNetUtil.h"
+@@ -874,6 +877,60 @@
+   return NS_OK;
+ }
+ 
++// Neonwolf M3: per-site Shields-down skips native content-classifier blocking.
++// Returns true when the user has put the top-level page for this channel into
++// "shields down" state, i.e. a "neonwolf-shields" permission == ALLOW on the
++// top-level document's content principal (set by the Shields panel). Shields is
++// a single per-top-level-site switch (like Brave/uBO), so we key off the
++// top-level document's principal, NOT each subresource's origin.
++bool NeonwolfShieldsDownForChannel(nsIChannel* aChannel) {
++  MOZ_ASSERT(NS_IsMainThread());
++  MOZ_ASSERT(XRE_IsParentProcess());
++
++  nsCOMPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();
++  if (!loadInfo) {
++    return false;
++  }
++
++  // Resolve the top-level document's principal via the target browsing
++  // context's top window global. This mirrors how
++  // UrlClassifierCommon::GetTopWindowURI walks to the top WindowGlobalParent,
++  // but uses its DocumentPrincipal (which carries the correct origin
++  // attributes, e.g. private browsing / containers) so the permission lookup
++  // matches the principal the Shields panel stored the permission on.
++  RefPtr<dom::BrowsingContext> browsingContext;
++  if (NS_FAILED(loadInfo->GetTargetBrowsingContext(
++          getter_AddRefs(browsingContext))) ||
++      !browsingContext) {
++    return false;
++  }
++
++  dom::CanonicalBrowsingContext* top = browsingContext->Canonical()->Top();
++  dom::WindowGlobalParent* wgp = top->GetCurrentWindowGlobal();
++  if (!wgp) {
++    return false;
++  }
++
++  nsCOMPtr<nsIPrincipal> topPrincipal = wgp->DocumentPrincipal();
++  if (!topPrincipal) {
++    return false;
++  }
++
++  nsCOMPtr<nsIPermissionManager> permMgr =
++      components::PermissionManager::Service();
++  if (!permMgr) {
++    return false;
++  }
++
++  uint32_t perm = nsIPermissionManager::UNKNOWN_ACTION;
++  if (NS_FAILED(permMgr->TestPermissionFromPrincipal(
++          topPrincipal, "neonwolf-shields"_ns, &perm))) {
++    return false;
++  }
++
++  return perm == nsIPermissionManager::ALLOW_ACTION;
++}
++
+ }  // namespace
+ 
+ /* static */
+@@ -968,7 +1025,14 @@
+   Maybe<ContentClassifierRequest> contentClassifierRequest;
+   RefPtr<ContentClassifierService> contentClassifier =
+       ContentClassifierService::GetInstance();
+-  if (contentClassifier) {
++  // Neonwolf M3: per-site Shields-down skips native content-classifier blocking.
++  // When the top-level site has shields down we leave contentClassifierRequest
++  // empty, so the worker below never runs ClassifyForCancel/ClassifyForAnnotate
++  // (both guarded by contentClassifierRequest.isSome()) and the native content
++  // blocker neither cancels nor annotates this load. Only the content-classifier
++  // path is gated here; Firefox's own URL-classifier (Safe Browsing / ETP) work,
++  // driven by `task`, is untouched and still runs.
++  if (contentClassifier && !NeonwolfShieldsDownForChannel(aChannel)) {
+     contentClassifierRequest.emplace(aChannel);
+   }
+ 

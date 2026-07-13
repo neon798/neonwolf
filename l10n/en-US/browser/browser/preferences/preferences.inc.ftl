@@ -63,6 +63,13 @@ librewolf-goog-safe-description = If you are worried about malware and phishing,
 librewolf-goog-safe-warning1 = Disabled over censorship concerns but recommended for less advanced users. All the checks happen locally.
 librewolf-goog-safe-download-description = Allow Safe Browsing to scan your downloads to identify suspicious files.
 librewolf-goog-safe-download-warning1 = All the checks happen locally.
+# Password Managers
+neonwolf-pwmgr-header = Password Managers
+neonwolf-pwmgr-description = Neonwolf has no built-in password manager — storing credentials in the browser is a weaker, less portable choice. We recommend a dedicated password manager instead:
+neonwolf-pwmgr-bitwarden = Bitwarden — open source, free tier, syncs everywhere
+neonwolf-pwmgr-1password = 1Password — polished, cross-platform, subscription
+neonwolf-pwmgr-protonpass = Proton Pass — privacy-focused, from the makers of Proton Mail
+neonwolf-pwmgr-keepassxc = KeePassXC — fully offline, local-only vault
 # Footer
 librewolf-footer = Useful links
 librewolf-config-link = All advanced settings (about:config)

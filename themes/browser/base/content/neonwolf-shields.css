@@ -1,16 +1,46 @@
 /* Neonwolf Shields UI - Brave-style shield panel */
 
+#neonwolf-shields-button-container {
+  -moz-context-properties: fill;
+  fill: var(--neonwolf-text-secondary);
+  padding: 0 4px;
+  position: relative;
+}
+
+#neonwolf-shields-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--neonwolf-accent-pink);
+  color: var(--neonwolf-bg-darkest);
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 1;
+  padding: 1px 3px;
+  border-radius: 6px;
+  box-shadow: 0 0 4px var(--neonwolf-accent-cyan);
+  pointer-events: none;
+}
+
+#neonwolf-shields-badge[hidden] {
+  display: none;
+}
+
 #neonwolf-shields-button {
-  list-style-image: url(chrome://browser/skin/neonwolf-shields.svg) !important;
-  fill: var(--neonwolf-text-secondary) !important;
+  width: 16px;
+  height: 16px;
+  list-style-image: url(chrome://browser/content/icons/neonwolf-shields-up.svg) !important;
 }
 
+#neonwolf-shields-button-container[shields="down"] #neonwolf-shields-button,
 #neonwolf-shields-button[shields="down"] {
-  fill: #ff4444 !important;
+  list-style-image: url(chrome://browser/content/icons/neonwolf-shields-down.svg) !important;
+  filter: drop-shadow(0 0 3px #ff4444) !important;
 }
 
+#neonwolf-shields-button-container[shields="up"] #neonwolf-shields-button,
 #neonwolf-shields-button[shields="up"] {
-  fill: var(--neonwolf-accent-cyan) !important;
+  list-style-image: url(chrome://browser/content/icons/neonwolf-shields-up.svg) !important;
   filter: drop-shadow(0 0 3px var(--neonwolf-accent-cyan)) !important;
 }
 
@@ -46,6 +76,12 @@
 
 .shields-toggle-row:hover {
   background: rgba(255, 0, 255, 0.05) !important;
+}
+
+/* Per-site farbling sub-row under the global FPP toggle */
+.shields-subrow {
+  margin-inline-start: 16px !important;
+  color: var(--neonwolf-text-dim) !important;
 }
 
 .shields-toggle-label {
@@ -91,4 +127,785 @@
 .shields-advanced-link:hover {
   color: var(--neonwolf-accent-pink) !important;
   text-decoration: underline !important;
+}
+
+/* M3 per-site control elements */
+.neonwolf-shields-host {
+  color: var(--neonwolf-accent-pink) !important;
+  text-shadow: 0 0 5px var(--neonwolf-accent-pink) !important;
+}
+
+.neonwolf-shields-status {
+  color: var(--neonwolf-text-secondary) !important;
+  font-size: 11px !important;
+  margin-top: 4px !important;
+}
+
+#neonwolf-shields-master {
+  color: var(--neonwolf-accent-cyan) !important;
+  font-weight: bold !important;
+}
+
+#neonwolf-shields-master-hint {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 10px !important;
+}
+
+/* When shields are not available (about:, file:), dim the controls. */
+#neonwolf-shields-panel[shields-available="false"] #neonwolf-shields-controls,
+#neonwolf-shields-panel[shields-available="false"] #neonwolf-shields-master-row,
+#neonwolf-shields-panel[shields-available="false"] #neonwolf-shields-footer {
+  opacity: 0.4 !important;
+  pointer-events: none !important;
+}
+
+/* Shields Logger page */
+#neonwolf-shields-logger-window {
+  --neonwolf-bg-darkest: #0d001a;
+  --neonwolf-bg-dark: #1a0028;
+  --neonwolf-bg-mid: #2d004f;
+  --neonwolf-accent-pink: #ff00ff;
+  --neonwolf-accent-cyan: #00ffff;
+  --neonwolf-text-primary: #e0e0ff;
+  --neonwolf-text-secondary: #b0b0ff;
+  --neonwolf-text-dim: #604080;
+  --neonwolf-border-pink: rgba(255, 0, 255, 0.3);
+  --neonwolf-border-cyan: rgba(0, 255, 255, 0.3);
+  --neonwolf-glow-pink: 0 0 10px rgba(255, 0, 255, 0.5), 0 0 20px rgba(255, 0, 255, 0.3);
+  background: linear-gradient(180deg, var(--neonwolf-bg-dark), var(--neonwolf-bg-darkest)) !important;
+  color: var(--neonwolf-text-primary) !important;
+}
+
+.neonwolf-logger {
+  min-height: 0 !important;
+}
+
+.neonwolf-logger-header {
+  background: linear-gradient(90deg, var(--neonwolf-bg-mid), var(--neonwolf-bg-dark)) !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+  padding: 12px 16px !important;
+}
+
+.neonwolf-logger-title {
+  color: var(--neonwolf-accent-pink) !important;
+  font-weight: bold !important;
+  font-size: 16px !important;
+  text-shadow: 0 0 5px var(--neonwolf-accent-pink) !important;
+}
+
+.neonwolf-logger-subtitle {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 11px !important;
+  margin-top: 2px !important;
+}
+
+.neonwolf-logger-toolbar {
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+}
+
+.neonwolf-logger-filter {
+  min-height: 28px !important;
+}
+
+.neonwolf-logger-action-filter {
+  min-width: 130px !important;
+}
+
+.neonwolf-logger-btn {
+  min-width: 72px !important;
+}
+
+.neonwolf-logger-follow {
+  color: var(--neonwolf-text-secondary) !important;
+  font-size: 11px !important;
+}
+
+.neonwolf-logger-stats {
+  gap: 16px !important;
+  padding: 6px 12px !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+  background: rgba(45, 0, 79, 0.35) !important;
+  flex-wrap: wrap !important;
+}
+
+.neonwolf-logger-stat {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 10px !important;
+}
+
+.neonwolf-logger-columns {
+  padding: 4px 8px !important;
+  border-bottom: 1px solid var(--neonwolf-border-cyan) !important;
+  background: var(--neonwolf-bg-darkest) !important;
+  font-size: 10px !important;
+  font-weight: bold !important;
+  color: var(--neonwolf-text-dim) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+
+.neonwolf-logger-scroll {
+  min-height: 0 !important;
+  background: var(--neonwolf-bg-darkest) !important;
+}
+
+.neonwolf-logger-list {
+  position: relative !important;
+  width: 100% !important;
+}
+
+.neonwolf-logger-row {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 24px !important;
+  padding: 0 8px !important;
+  box-sizing: border-box !important;
+  border-bottom: 1px solid rgba(255, 0, 255, 0.08) !important;
+  font-size: 11px !important;
+  color: var(--neonwolf-text-secondary) !important;
+}
+
+.neonwolf-logger-row:hover {
+  background: rgba(255, 0, 255, 0.06) !important;
+}
+
+.neonwolf-logger-col {
+  overflow: hidden !important;
+  padding: 0 4px !important;
+}
+
+.neonwolf-logger-col-header-sortable {
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+.neonwolf-logger-col-header-sortable:hover {
+  color: var(--neonwolf-accent-cyan) !important;
+}
+
+.neonwolf-logger-col-header-active {
+  color: var(--neonwolf-accent-pink) !important;
+}
+
+.neonwolf-logger-col-time {
+  width: 72px !important;
+  flex: 0 0 72px !important;
+  font-family: monospace !important;
+}
+
+.neonwolf-logger-col-site {
+  width: 140px !important;
+  flex: 0 0 140px !important;
+}
+
+.neonwolf-logger-col-url {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  font-family: monospace !important;
+}
+
+.neonwolf-logger-col-type {
+  width: 80px !important;
+  flex: 0 0 80px !important;
+}
+
+.neonwolf-logger-col-action {
+  width: 88px !important;
+  flex: 0 0 88px !important;
+  font-weight: bold !important;
+  text-transform: capitalize !important;
+}
+
+.neonwolf-logger-col-rule {
+  width: 180px !important;
+  flex: 0 0 180px !important;
+}
+
+.neonwolf-logger-action-blocked {
+  color: #ff00ff !important;
+  text-shadow: 0 0 4px rgba(255, 0, 255, 0.5) !important;
+}
+
+.neonwolf-logger-action-redirected {
+  color: #00ffff !important;
+  text-shadow: 0 0 4px rgba(0, 255, 255, 0.5) !important;
+}
+
+.neonwolf-logger-action-allowed {
+  color: #8866aa !important;
+}
+
+.neonwolf-logger-empty {
+  flex: 1 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 32px 24px !important;
+  text-align: center !important;
+}
+
+.neonwolf-logger-empty-title {
+  color: var(--neonwolf-accent-cyan) !important;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  margin-bottom: 8px !important;
+}
+
+.neonwolf-logger-empty-hint {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 11px !important;
+  max-width: 420px !important;
+}
+
+.neonwolf-logger-status {
+  border-top: 1px solid var(--neonwolf-border-pink) !important;
+  padding: 4px 12px !important;
+  background: var(--neonwolf-bg-darkest) !important;
+}
+
+.neonwolf-logger-status-label {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 10px !important;
+}
+
+.neonwolf-logger-row {
+  cursor: pointer !important;
+}
+
+.neonwolf-logger-row-selected {
+  background: rgba(0, 255, 255, 0.12) !important;
+  border-bottom-color: var(--neonwolf-border-cyan) !important;
+}
+
+.neonwolf-logger-drawer {
+  height: 200px !important;
+  min-height: 200px !important;
+  max-height: 200px !important;
+  border-top: 1px solid var(--neonwolf-border-cyan) !important;
+  background: var(--neonwolf-bg-dark) !important;
+}
+
+.neonwolf-logger-drawer-header {
+  padding: 6px 12px !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+}
+
+.neonwolf-logger-drawer-title {
+  color: var(--neonwolf-accent-cyan) !important;
+  font-weight: bold !important;
+  font-size: 12px !important;
+}
+
+.neonwolf-logger-drawer-scroll {
+  min-height: 0 !important;
+}
+
+.neonwolf-logger-drawer-fields {
+  padding: 8px 12px !important;
+}
+
+.neonwolf-logger-drawer-row {
+  margin-bottom: 6px !important;
+  gap: 8px !important;
+}
+
+.neonwolf-logger-drawer-key {
+  width: 88px !important;
+  flex: 0 0 88px !important;
+  color: var(--neonwolf-accent-pink) !important;
+  font-size: 11px !important;
+  font-weight: bold !important;
+}
+
+.neonwolf-logger-drawer-value {
+  flex: 1 1 auto !important;
+  color: var(--neonwolf-text-primary) !important;
+  font-size: 11px !important;
+  font-family: monospace !important;
+  white-space: pre-wrap !important;
+  user-select: text !important;
+  -moz-user-select: text !important;
+  word-break: break-all !important;
+}
+
+/* Shields Stats page */
+#neonwolf-shields-stats-window {
+  --neonwolf-bg-darkest: #0d001a;
+  --neonwolf-bg-dark: #1a0028;
+  --neonwolf-bg-mid: #2d004f;
+  --neonwolf-accent-pink: #ff00ff;
+  --neonwolf-accent-cyan: #00ffff;
+  --neonwolf-text-primary: #e0e0ff;
+  --neonwolf-text-secondary: #b0b0ff;
+  --neonwolf-text-dim: #604080;
+  --neonwolf-border-pink: rgba(255, 0, 255, 0.3);
+  --neonwolf-border-cyan: rgba(0, 255, 255, 0.3);
+  --neonwolf-glow-pink: 0 0 10px rgba(255, 0, 255, 0.5), 0 0 20px rgba(255, 0, 255, 0.3);
+  background: linear-gradient(180deg, var(--neonwolf-bg-dark), var(--neonwolf-bg-darkest)) !important;
+  color: var(--neonwolf-text-primary) !important;
+}
+
+.neonwolf-stats {
+  min-height: 0 !important;
+}
+
+.neonwolf-stats-header {
+  background: linear-gradient(90deg, var(--neonwolf-bg-mid), var(--neonwolf-bg-dark)) !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+  padding: 12px 16px !important;
+}
+
+.neonwolf-stats-title {
+  color: var(--neonwolf-accent-pink) !important;
+  font-weight: bold !important;
+  font-size: 16px !important;
+  text-shadow: 0 0 5px var(--neonwolf-accent-pink) !important;
+}
+
+.neonwolf-stats-subtitle {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 11px !important;
+  margin-top: 2px !important;
+}
+
+.neonwolf-stats-toolbar {
+  padding: 8px 12px !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+}
+
+.neonwolf-stats-btn {
+  min-width: 72px !important;
+}
+
+.neonwolf-stats-empty {
+  flex: 1 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 32px 24px !important;
+  text-align: center !important;
+}
+
+.neonwolf-stats-empty-title {
+  color: var(--neonwolf-accent-cyan) !important;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  margin-bottom: 8px !important;
+}
+
+.neonwolf-stats-empty-hint {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 11px !important;
+  max-width: 420px !important;
+}
+
+.neonwolf-stats-scroll {
+  min-height: 0 !important;
+  background: var(--neonwolf-bg-darkest) !important;
+}
+
+.neonwolf-stats-content {
+  padding: 16px !important;
+  gap: 20px !important;
+}
+
+.neonwolf-stats-headline {
+  gap: 12px !important;
+  justify-content: space-around !important;
+  flex-wrap: wrap !important;
+}
+
+.neonwolf-stats-counter {
+  align-items: center !important;
+  min-width: 100px !important;
+}
+
+.neonwolf-stats-counter-value {
+  font-size: 24px !important;
+  font-weight: bold !important;
+  color: var(--neonwolf-text-primary) !important;
+}
+
+.neonwolf-stats-counter-label {
+  font-size: 10px !important;
+  color: var(--neonwolf-text-dim) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+.neonwolf-stats-value-blocked {
+  color: #ff00ff !important;
+  text-shadow: 0 0 6px rgba(255, 0, 255, 0.5) !important;
+}
+
+.neonwolf-stats-value-redirected {
+  color: #00ffff !important;
+  text-shadow: 0 0 6px rgba(0, 255, 255, 0.5) !important;
+}
+
+.neonwolf-stats-value-allowed {
+  color: #8866aa !important;
+}
+
+.neonwolf-stats-section {
+  gap: 8px !important;
+}
+
+.neonwolf-stats-section-title {
+  color: var(--neonwolf-accent-cyan) !important;
+  font-size: 12px !important;
+  font-weight: bold !important;
+  margin-bottom: 4px !important;
+}
+
+.neonwolf-stats-muted {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 11px !important;
+}
+
+.neonwolf-stats-type-row,
+.neonwolf-stats-site-row {
+  gap: 8px !important;
+  margin-bottom: 6px !important;
+}
+
+.neonwolf-stats-type-label,
+.neonwolf-stats-site-label {
+  width: 120px !important;
+  flex: 0 0 120px !important;
+  font-size: 11px !important;
+  color: var(--neonwolf-text-secondary) !important;
+}
+
+.neonwolf-stats-bar-track {
+  flex: 1 1 auto !important;
+  height: 10px !important;
+  background: rgba(96, 64, 128, 0.35) !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+.neonwolf-stats-bar-track-narrow {
+  max-width: 280px !important;
+}
+
+.neonwolf-stats-bar-fill {
+  height: 100% !important;
+  border-radius: 4px !important;
+  min-width: 2px !important;
+}
+
+.neonwolf-stats-bar-fill-type {
+  background: linear-gradient(90deg, #ff00ff, #b000ff) !important;
+  box-shadow: 0 0 6px rgba(255, 0, 255, 0.4) !important;
+}
+
+.neonwolf-stats-bar-fill-site {
+  background: linear-gradient(90deg, #00ffff, #0088ff) !important;
+  box-shadow: 0 0 6px rgba(0, 255, 255, 0.4) !important;
+}
+
+.neonwolf-stats-type-count,
+.neonwolf-stats-site-count {
+  width: 40px !important;
+  flex: 0 0 40px !important;
+  text-align: right !important;
+  font-size: 11px !important;
+  color: var(--neonwolf-text-dim) !important;
+}
+
+.neonwolf-stats-per-minute {
+  gap: 6px !important;
+  height: 120px !important;
+  align-items: flex-end !important;
+  padding-top: 8px !important;
+}
+
+.neonwolf-stats-minute-col {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  gap: 4px !important;
+}
+
+.neonwolf-stats-minute-bar-outer {
+  width: 100% !important;
+  height: 80px !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  background: rgba(96, 64, 128, 0.25) !important;
+  border-radius: 3px 3px 0 0 !important;
+}
+
+.neonwolf-stats-minute-bar-inner {
+  width: 100% !important;
+  min-height: 2px !important;
+  background: linear-gradient(180deg, #ff00ff, #2d004f) !important;
+  border-radius: 3px 3px 0 0 !important;
+  box-shadow: 0 0 6px rgba(255, 0, 255, 0.35) !important;
+}
+
+.neonwolf-stats-minute-count {
+  font-size: 9px !important;
+  color: var(--neonwolf-text-dim) !important;
+}
+
+/* Shields Custom Filters page */
+#neonwolf-shields-filters-window {
+  --neonwolf-bg-darkest: #0d001a;
+  --neonwolf-bg-dark: #1a0028;
+  --neonwolf-bg-mid: #2d004f;
+  --neonwolf-accent-pink: #ff00ff;
+  --neonwolf-accent-cyan: #00ffff;
+  --neonwolf-text-primary: #e0e0ff;
+  --neonwolf-text-secondary: #b0b0ff;
+  --neonwolf-text-dim: #604080;
+  --neonwolf-border-pink: rgba(255, 0, 255, 0.3);
+  --neonwolf-border-cyan: rgba(0, 255, 255, 0.3);
+  --neonwolf-glow-pink: 0 0 10px rgba(255, 0, 255, 0.5), 0 0 20px rgba(255, 0, 255, 0.3);
+  background: linear-gradient(180deg, var(--neonwolf-bg-dark), var(--neonwolf-bg-darkest)) !important;
+  color: var(--neonwolf-text-primary) !important;
+}
+
+.neonwolf-filters {
+  min-height: 0 !important;
+}
+
+.neonwolf-filters-header {
+  background: linear-gradient(90deg, var(--neonwolf-bg-mid), var(--neonwolf-bg-dark)) !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+  padding: 12px 16px !important;
+}
+
+.neonwolf-filters-title {
+  color: var(--neonwolf-accent-pink) !important;
+  font-weight: bold !important;
+  font-size: 16px !important;
+  text-shadow: 0 0 5px var(--neonwolf-accent-pink) !important;
+}
+
+.neonwolf-filters-subtitle {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 11px !important;
+  margin-top: 2px !important;
+}
+
+.neonwolf-filters-toolbar {
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+  flex-wrap: wrap !important;
+}
+
+.neonwolf-filters-btn {
+  min-width: 72px !important;
+}
+
+.neonwolf-filters-counter {
+  color: var(--neonwolf-text-secondary) !important;
+  font-size: 11px !important;
+  margin-left: 4px !important;
+}
+
+.neonwolf-filters-unsaved {
+  color: #8866aa !important;
+  font-size: 10px !important;
+  font-style: italic !important;
+  margin-right: 8px !important;
+}
+
+.neonwolf-filters-lint {
+  color: var(--neonwolf-accent-pink) !important;
+  font-size: 10px !important;
+  margin-right: 8px !important;
+  max-width: 280px !important;
+}
+
+.neonwolf-filters-status {
+  color: var(--neonwolf-accent-cyan) !important;
+  font-size: 10px !important;
+  font-weight: bold !important;
+  min-width: 48px !important;
+}
+
+.neonwolf-filters-editor-wrap {
+  min-height: 0 !important;
+  padding: 8px 12px 12px !important;
+}
+
+.neonwolf-filters-editor {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  box-sizing: border-box !important;
+  resize: none !important;
+  font-family: monospace !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  color: var(--neonwolf-text-primary) !important;
+  background: var(--neonwolf-bg-darkest) !important;
+  border: 1px solid var(--neonwolf-border-cyan) !important;
+  border-radius: 4px !important;
+  padding: 8px 10px !important;
+  outline: none !important;
+}
+
+.neonwolf-filters-editor:focus {
+  border-color: var(--neonwolf-accent-cyan) !important;
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.25) !important;
+}
+
+.neonwolf-filters-editor::placeholder {
+  color: var(--neonwolf-text-dim) !important;
+  opacity: 0.8 !important;
+}
+
+.neonwolf-filters-subscriptions {
+  padding: 8px 12px !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+  gap: 6px !important;
+}
+
+.neonwolf-filters-section-title {
+  color: var(--neonwolf-accent-cyan) !important;
+  font-size: 11px !important;
+  font-weight: bold !important;
+}
+
+.neonwolf-filters-subscribe-row {
+  gap: 8px !important;
+}
+
+.neonwolf-filters-subscribe-input {
+  min-height: 26px !important;
+  font-size: 11px !important;
+  font-family: monospace !important;
+  color: var(--neonwolf-text-primary) !important;
+  background: var(--neonwolf-bg-darkest) !important;
+  border: 1px solid var(--neonwolf-border-cyan) !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+}
+
+.neonwolf-filters-subscribe-list {
+  max-height: 72px !important;
+  overflow: auto !important;
+  gap: 2px !important;
+}
+
+.neonwolf-filters-subscribe-item {
+  font-size: 10px !important;
+  font-family: monospace !important;
+  color: var(--neonwolf-text-secondary) !important;
+}
+
+.neonwolf-filters-subscribe-empty {
+  font-size: 10px !important;
+  color: var(--neonwolf-text-dim) !important;
+  font-style: italic !important;
+}
+
+/* Shields Lists page */
+#neonwolf-shields-lists-window {
+  --neonwolf-bg-darkest: #0d001a;
+  --neonwolf-bg-dark: #1a0028;
+  --neonwolf-bg-mid: #2d004f;
+  --neonwolf-accent-pink: #ff00ff;
+  --neonwolf-accent-cyan: #00ffff;
+  --neonwolf-text-primary: #e0e0ff;
+  --neonwolf-text-secondary: #b0b0ff;
+  --neonwolf-text-dim: #604080;
+  --neonwolf-border-pink: rgba(255, 0, 255, 0.3);
+  --neonwolf-border-cyan: rgba(0, 255, 255, 0.3);
+  background: linear-gradient(180deg, var(--neonwolf-bg-dark), var(--neonwolf-bg-darkest)) !important;
+  color: var(--neonwolf-text-primary) !important;
+}
+
+.neonwolf-lists {
+  min-height: 0 !important;
+}
+
+.neonwolf-lists-header {
+  background: linear-gradient(90deg, var(--neonwolf-bg-mid), var(--neonwolf-bg-dark)) !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+  padding: 12px 16px !important;
+}
+
+.neonwolf-lists-title {
+  color: var(--neonwolf-accent-pink) !important;
+  font-weight: bold !important;
+  font-size: 16px !important;
+  text-shadow: 0 0 5px var(--neonwolf-accent-pink) !important;
+}
+
+.neonwolf-lists-subtitle {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 11px !important;
+  margin-top: 2px !important;
+}
+
+.neonwolf-lists-toolbar {
+  gap: 12px !important;
+  padding: 8px 12px !important;
+  border-bottom: 1px solid var(--neonwolf-border-pink) !important;
+  flex-wrap: wrap !important;
+}
+
+.neonwolf-lists-auto {
+  color: var(--neonwolf-text-secondary) !important;
+  font-size: 11px !important;
+}
+
+.neonwolf-lists-btn {
+  min-width: 96px !important;
+}
+
+.neonwolf-lists-refresh-status {
+  color: var(--neonwolf-accent-cyan) !important;
+  font-size: 10px !important;
+  font-style: italic !important;
+}
+
+.neonwolf-lists-last-refresh {
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 10px !important;
+}
+
+.neonwolf-lists-scroll {
+  min-height: 0 !important;
+  background: var(--neonwolf-bg-darkest) !important;
+}
+
+.neonwolf-lists-table {
+  padding: 8px 12px 16px !important;
+}
+
+.neonwolf-lists-row {
+  padding: 4px 0 !important;
+  border-bottom: 1px solid rgba(255, 0, 255, 0.08) !important;
+  gap: 8px !important;
+}
+
+.neonwolf-lists-row-header {
+  font-weight: bold !important;
+  color: var(--neonwolf-text-dim) !important;
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid var(--neonwolf-border-cyan) !important;
+  padding-bottom: 6px !important;
+  margin-bottom: 4px !important;
+}
+
+.neonwolf-lists-col-name {
+  width: 200px !important;
+  flex: 0 0 200px !important;
+  font-size: 11px !important;
+  color: var(--neonwolf-text-secondary) !important;
+}
+
+.neonwolf-lists-col-updated {
+  flex: 1 1 auto !important;
+  font-size: 11px !important;
+  color: var(--neonwolf-text-dim) !important;
 }

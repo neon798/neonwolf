@@ -1,0 +1,413 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* eslint-env mozilla/chrome-window */
+
+/**
+ * Neonwolf Custom Filters editor (M5 display layer).
+ *
+ * Reads/writes privacy.trackingprotection.ubo.userFilters. Client-side lint is
+ * advisory only — Save is never blocked.
+ */
+var gNeonwolfShieldsFilters = {
+  PREF: "privacy.trackingprotection.ubo.userFilters",
+  PREF_SUBSCRIPTIONS: "neonwolf.shields.lists.subscriptions",
+  LINT_DEBOUNCE_MS: 300,
+  SAVED_STATUS_MS: 2500,
+
+  _savedValue: "",
+  _lintTimer: null,
+  _savedTimer: null,
+  _invalidLines: [],
+
+  get _editor() {
+    delete this._editor;
+    return (this._editor = document.getElementById("neonwolf-filters-editor"));
+  },
+
+  get _counter() {
+    delete this._counter;
+    return (this._counter = document.getElementById("neonwolf-filters-counter"));
+  },
+
+  get _unsaved() {
+    delete this._unsaved;
+    return (this._unsaved = document.getElementById("neonwolf-filters-unsaved"));
+  },
+
+  get _lintLabel() {
+    delete this._lintLabel;
+    return (this._lintLabel = document.getElementById("neonwolf-filters-lint"));
+  },
+
+  get _statusLabel() {
+    delete this._statusLabel;
+    return (this._statusLabel = document.getElementById("neonwolf-filters-status"));
+  },
+
+  get _subscribeList() {
+    delete this._subscribeList;
+    return (this._subscribeList = document.getElementById(
+      "neonwolf-filters-subscribe-list"
+    ));
+  },
+
+  get _subscribeInput() {
+    delete this._subscribeInput;
+    return (this._subscribeInput = document.getElementById(
+      "neonwolf-filters-subscribe-input"
+    ));
+  },
+
+  _loadFromPref() {
+    return Services.prefs.getStringPref(this.PREF, "");
+  },
+
+  _saveToPref(value) {
+    Services.prefs.setStringPref(this.PREF, value);
+  },
+
+  _loadSubscriptions() {
+    return Services.prefs
+      .getStringPref(this.PREF_SUBSCRIPTIONS, "")
+      .split("\n")
+      .map(line => line.trim())
+      .filter(Boolean);
+  },
+
+  _saveSubscriptions(urls) {
+    Services.prefs.setStringPref(this.PREF_SUBSCRIPTIONS, urls.join("\n"));
+  },
+
+  _renderSubscriptions() {
+    let list = this._subscribeList;
+    if (!list) {
+      return;
+    }
+    list.textContent = "";
+    let urls = this._loadSubscriptions();
+    if (!urls.length) {
+      let empty = document.createXULElement("label");
+      empty.className = "neonwolf-filters-subscribe-empty";
+      empty.setAttribute("value", "No subscribed URLs");
+      list.appendChild(empty);
+      return;
+    }
+    for (let url of urls) {
+      let row = document.createXULElement("label");
+      row.className = "neonwolf-filters-subscribe-item";
+      row.setAttribute("value", url);
+      row.setAttribute("crop", "end");
+      list.appendChild(row);
+    }
+  },
+
+  async _onImport() {
+    let fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    fp.init(
+      window.browsingContext,
+      "Import filters",
+      Ci.nsIFilePicker.modeOpen
+    );
+    fp.appendFilters(Ci.nsIFilePicker.filterText);
+    fp.appendFilter("Text files", "*.txt");
+
+    let result = await new Promise(resolve => fp.open({ done: resolve }));
+    if (result != Ci.nsIFilePicker.returnOK) {
+      return;
+    }
+
+    let imported = await IOUtils.readUTF8(fp.file.path);
+    let append = Services.prompt.confirm(
+      window,
+      "Import filters",
+      "Append to existing rules?\n\nOK = Append\nCancel = Replace"
+    );
+    let merged = append
+      ? [this._editor.value.trimEnd(), imported.trim()].filter(Boolean).join("\n")
+      : imported;
+    this._editor.value = merged;
+    this._onInput();
+  },
+
+  async _onExport() {
+    let fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    fp.init(
+      window.browsingContext,
+      "Export filters",
+      Ci.nsIFilePicker.modeSave
+    );
+    fp.appendFilters(Ci.nsIFilePicker.filterText);
+    fp.appendFilter("Text files", "*.txt");
+    fp.defaultString = "neonwolf-filters.txt";
+
+    let result = await new Promise(resolve => fp.open({ done: resolve }));
+    if (result != Ci.nsIFilePicker.returnOK) {
+      return;
+    }
+
+    await IOUtils.writeUTF8(fp.file.path, this._editor.value);
+    this._statusLabel.setAttribute("value", "Exported");
+    if (this._savedTimer) {
+      clearTimeout(this._savedTimer);
+    }
+    this._savedTimer = setTimeout(() => {
+      this._savedTimer = null;
+      this._statusLabel.setAttribute("value", "");
+    }, this.SAVED_STATUS_MS);
+  },
+
+  _onSubscribeAdd() {
+    let input = this._subscribeInput;
+    if (!input) {
+      return;
+    }
+    let url = input.value.trim();
+    if (!url) {
+      return;
+    }
+    let urls = this._loadSubscriptions();
+    if (!urls.includes(url)) {
+      urls.push(url);
+      this._saveSubscriptions(urls);
+    }
+    input.value = "";
+    this._renderSubscriptions();
+  },
+
+  // Cosmetic separators, longest first so the full separator (and thus the
+  // selector after it) is identified correctly.
+  COSMETIC_SEPS: ["#@$#", "#@?#", "#@#", "#?#", "#$#", "##"],
+
+  _cosmeticSep(line) {
+    for (let sep of this.COSMETIC_SEPS) {
+      let idx = line.indexOf(sep);
+      if (idx != -1) {
+        return { idx, len: sep.length };
+      }
+    }
+    return null;
+  },
+
+  /**
+   * blank | comment | rule. A leading "#" is only a comment when the line is
+   * not a cosmetic rule: generic cosmetics like "##.banner" start with "#" but
+   * are rules, whereas "! foo" and "# note" are comments.
+   */
+  _classifyLine(line) {
+    let trimmed = line.trim();
+    if (!trimmed) {
+      return "blank";
+    }
+    if (trimmed.startsWith("!")) {
+      return "comment";
+    }
+    if (this._cosmeticSep(trimmed)) {
+      return "rule";
+    }
+    if (trimmed.startsWith("#")) {
+      return "comment";
+    }
+    return "rule";
+  },
+
+  /**
+   * Conservative per-line lint. Returns 1 if the rule line looks invalid,
+   * else 0. Only rule lines are linted; blanks/comments always pass.
+   */
+  _lintLine(line) {
+    if (this._classifyLine(line) != "rule") {
+      return 0;
+    }
+
+    let trimmed = line.trim();
+
+    let sep = this._cosmeticSep(trimmed);
+    if (sep) {
+      let selector = trimmed.slice(sep.idx + sep.len).trim();
+      return selector ? 0 : 1;
+    }
+
+    let dollar = trimmed.indexOf("$");
+    let pattern = dollar == -1 ? trimmed : trimmed.slice(0, dollar);
+    if (/\s/.test(pattern)) {
+      return 1;
+    }
+
+    if (dollar != -1) {
+      if (trimmed.endsWith("$")) {
+        return 1;
+      }
+      let options = trimmed.slice(dollar + 1);
+      if (options.includes(",,") || options.startsWith(",")) {
+        return 1;
+      }
+    }
+
+    return 0;
+  },
+
+  _lintText(text) {
+    let lines = text.split("\n");
+    let invalid = [];
+    for (let i = 0; i < lines.length; i++) {
+      if (this._lintLine(lines[i])) {
+        invalid.push(i + 1);
+      }
+    }
+    return invalid;
+  },
+
+  _countRules(text) {
+    let rules = 0;
+    let comments = 0;
+    for (let line of text.split("\n")) {
+      let kind = this._classifyLine(line);
+      if (kind == "comment") {
+        comments++;
+      } else if (kind == "rule") {
+        rules++;
+      }
+    }
+    return { rules, comments };
+  },
+
+  _isDirty() {
+    return this._editor.value != this._savedValue;
+  },
+
+  _updateCounter() {
+    let { rules, comments } = this._countRules(this._editor.value);
+    this._counter.setAttribute(
+      "value",
+      `${rules} rule${rules == 1 ? "" : "s"}, ${comments} comment${comments == 1 ? "" : "s"}`
+    );
+  },
+
+  _updateUnsaved() {
+    this._unsaved.hidden = !this._isDirty();
+  },
+
+  _updateLintSummary() {
+    let invalid = this._invalidLines;
+    if (!invalid.length) {
+      this._lintLabel.setAttribute("value", "");
+      return;
+    }
+    let lineList = invalid.join(", ");
+    let noun = invalid.length == 1 ? "line looks" : "lines look";
+    this._lintLabel.setAttribute(
+      "value",
+      `${invalid.length} ${noun} invalid — lines ${lineList}`
+    );
+  },
+
+  _updateChrome() {
+    this._updateCounter();
+    this._updateUnsaved();
+    this._updateLintSummary();
+  },
+
+  _scheduleLint() {
+    if (this._lintTimer) {
+      clearTimeout(this._lintTimer);
+    }
+    this._lintTimer = setTimeout(() => {
+      this._lintTimer = null;
+      this._invalidLines = this._lintText(this._editor.value);
+      this._updateLintSummary();
+    }, this.LINT_DEBOUNCE_MS);
+  },
+
+  _showSaved() {
+    this._statusLabel.setAttribute("value", "Saved");
+    if (this._savedTimer) {
+      clearTimeout(this._savedTimer);
+    }
+    this._savedTimer = setTimeout(() => {
+      this._savedTimer = null;
+      this._statusLabel.setAttribute("value", "");
+    }, this.SAVED_STATUS_MS);
+  },
+
+  _seedEditor() {
+    this._savedValue = this._loadFromPref();
+    this._editor.value = this._savedValue;
+    this._invalidLines = this._lintText(this._savedValue);
+    this._renderSubscriptions();
+    this._updateChrome();
+  },
+
+  _onSave() {
+    let value = this._editor.value;
+    this._saveToPref(value);
+    this._savedValue = value;
+    this._updateChrome();
+    this._showSaved();
+  },
+
+  _onRevert() {
+    this._seedEditor();
+    this._statusLabel.setAttribute("value", "");
+  },
+
+  _onInput() {
+    this._updateCounter();
+    this._updateUnsaved();
+    this._scheduleLint();
+  },
+
+  _onUnload() {
+    if (this._lintTimer) {
+      clearTimeout(this._lintTimer);
+      this._lintTimer = null;
+    }
+    if (this._savedTimer) {
+      clearTimeout(this._savedTimer);
+      this._savedTimer = null;
+    }
+  },
+
+  init() {
+    if (this._initialized) {
+      return;
+    }
+    this._initialized = true;
+
+    let saveBtn = document.getElementById("neonwolf-filters-save");
+    if (saveBtn) {
+      saveBtn.addEventListener("command", () => this._onSave());
+    }
+
+    let revertBtn = document.getElementById("neonwolf-filters-revert");
+    if (revertBtn) {
+      revertBtn.addEventListener("command", () => this._onRevert());
+    }
+
+    let importBtn = document.getElementById("neonwolf-filters-import");
+    if (importBtn) {
+      importBtn.addEventListener("command", () => this._onImport());
+    }
+
+    let exportBtn = document.getElementById("neonwolf-filters-export");
+    if (exportBtn) {
+      exportBtn.addEventListener("command", () => this._onExport());
+    }
+
+    let subscribeAdd = document.getElementById("neonwolf-filters-subscribe-add");
+    if (subscribeAdd) {
+      subscribeAdd.addEventListener("command", () => this._onSubscribeAdd());
+    }
+
+    this._editor.addEventListener("input", () => this._onInput());
+
+    window.addEventListener("unload", () => this._onUnload(), { once: true });
+
+    this._seedEditor();
+  },
+};
+
+window.addEventListener("load", () => gNeonwolfShieldsFilters.init(), {
+  once: true,
+});

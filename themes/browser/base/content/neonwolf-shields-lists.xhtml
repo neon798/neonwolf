@@ -1,0 +1,61 @@
+<?xml version="1.0"?> <!-- -*- Mode: HTML -*- -->
+
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+
+<?xml-stylesheet href="chrome://global/skin/global.css" type="text/css"?>
+<?xml-stylesheet href="chrome://browser/content/neonwolf-shields.css" type="text/css"?>
+
+<window xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+        xmlns:html="http://www.w3.org/1999/xhtml"
+        id="neonwolf-shields-lists-window"
+        windowtype="neonwolf:shields-lists"
+        title="Neonwolf Filter Lists"
+        width="720"
+        height="560">
+
+  <script src="chrome://browser/content/neonwolf-shields-lists.js"/>
+
+  <vbox id="neonwolf-lists-root" class="neonwolf-lists" flex="1">
+    <vbox id="neonwolf-lists-header" class="neonwolf-lists-header">
+      <label class="neonwolf-lists-title" value="Neonwolf Filter Lists"/>
+      <label class="neonwolf-lists-subtitle"
+             value="Bundled ad-block lists and refresh status"/>
+    </vbox>
+
+    <hbox id="neonwolf-lists-toolbar" class="neonwolf-lists-toolbar" align="center">
+      <checkbox id="neonwolf-lists-auto-refresh"
+                class="neonwolf-lists-auto"
+                label="Auto-refresh lists"/>
+      <button id="neonwolf-lists-refresh-now" class="neonwolf-lists-btn" label="Refresh now"/>
+      <label id="neonwolf-lists-refresh-status" class="neonwolf-lists-refresh-status"/>
+      <spacer flex="1"/>
+      <label id="neonwolf-lists-last-refresh" class="neonwolf-lists-last-refresh"/>
+    </hbox>
+
+    <scrollbox id="neonwolf-lists-scroll" class="neonwolf-lists-scroll" flex="1">
+      <vbox id="neonwolf-lists-table" class="neonwolf-lists-table">
+        <hbox class="neonwolf-lists-row neonwolf-lists-row-header" align="center">
+          <label class="neonwolf-lists-col-name" value="List"/>
+          <label class="neonwolf-lists-col-updated" value="Last refresh"/>
+        </hbox>
+        <vbox id="neonwolf-lists-rows"/>
+      </vbox>
+
+      <vbox id="neonwolf-lists-subscriptions" class="neonwolf-filters-subscriptions">
+        <label class="neonwolf-filters-section-title" value="Subscribed lists"/>
+        <vbox id="neonwolf-lists-sub-rows" class="neonwolf-filters-subscribe-list"/>
+        <hbox class="neonwolf-filters-subscribe-row" align="center">
+          <html:input id="neonwolf-lists-sub-input"
+                      class="neonwolf-filters-subscribe-input"
+                      type="url"
+                      placeholder="https://example.com/filters.txt"
+                      flex="1"/>
+          <button id="neonwolf-lists-sub-add" class="neonwolf-lists-btn" label="Subscribe"/>
+        </hbox>
+        <label id="neonwolf-lists-sub-error" class="neonwolf-filters-lint"/>
+      </vbox>
+    </scrollbox>
+  </vbox>
+</window>

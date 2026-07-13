@@ -21,3 +21,25 @@
 	-moz-context-properties: fill, fill-opacity;
 	fill: currentColor;
 }
+.neonwolf-pwmgr-description {
+	margin-bottom: 12px;
+	opacity: 0.85;
+}
+.neonwolf-pwmgr-list > .neonwolf-pwmgr-link {
+	margin-block: 4px;
+}
+.neonwolf-settings-heading {
+	font-weight: 600;
+	margin-block: 12px 4px;
+}
+.neonwolf-settings-heading:first-child {
+	margin-top: 0;
+}
+.neonwolf-settings-row {
+	margin-top: 6px;
+	gap: 10px;
+}
+.neonwolf-settings-dim {
+	opacity: 0.7;
+	font-size: 0.9em;
+}

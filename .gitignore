@@ -5,4 +5,18 @@
 /docker-dist
 *.log
 patchfail.out
-/assets/adblock
+scripts/__pycache__/
+__pycache__/
+# validation scorecards are generated; commit reference ones explicitly with -f
+scripts/validate/scorecards/
+scripts/validate/.venv/
+# Note: assets/adblock/*.txt and assets/ubo-resources.json ARE committed so the
+# native ad blocker builds self-contained in CI (gen-adblock-dump.py needs them
+# at `make dir` time; there is no networked list-fetch step in the release job).
+
+# --- AI hybrid-build workflow scratch (local only, never pushed) ---
+# The Strong/Weak-AI playbook, the GROK.md handoff artifact it prescribes, and
+# the helper-agent directions/handoffs are working scratch — not repo content.
+AI cowork.md
+GROK.md
+docs/agents/
